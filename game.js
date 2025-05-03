@@ -1878,6 +1878,7 @@ class KnownGameState {
                     knownGameState.grid[i][k].possibleActors = [makeActor(ActorId.Treasure)];
                 }
                 else knownGameState.grid[i][k].removePossibleActor(ActorId.Mine);
+                knownGameState.grid[i][k].removePossibleActor(ActorId.MineKing);
             }
         }
     }
@@ -2042,7 +2043,6 @@ function updateKnownGameState() {
                     for (let x = 0; x < state.gridW; ++x) {
                         if (y != a.ty || x != a.tx) {
                             knownGameState.grid[y][x].removePossibleActor(ActorId.Mimic);
-                            knownGameState.grid[y][x].removePossibleActor(ActorId.MineKing);
                         }
                     }
                 }
@@ -2077,7 +2077,9 @@ function updateKnownGameState() {
         if (a.revealed && a.id == ActorId.Gargoyle) {
             const twinx = a.tx + [0, 1, 0, -1][a.facingDirection];
             const twiny = a.ty + [-1, 0, 1, 0][a.facingDirection];
-            knownGameState.grid[twiny][twinx].possibleActors = [makeActor(ActorId.Gargoyle)];
+            if (!getActorAt(twinx, twiny).revealed) {
+                knownGameState.grid[twiny][twinx].possibleActors = [makeActor(ActorId.Gargoyle)];
+            }
         }
     }
 
