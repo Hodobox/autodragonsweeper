@@ -16,6 +16,7 @@ let fontUIBlackDark;
 let fontBook;
 let fontUIRed;
 let fontUIYellow;
+let fontUIBlue;
 let fontUIBook;
 let fontCredits;
 let fontWinscreen;
@@ -1968,13 +1969,51 @@ function updateKnownGameState() {
         }
 
         for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
-            if (!n.revealed) {
+            if (!n.revealed && knownGameState.grid[n.ty][n.tx].knownPower() == null) {
                 // might not be 'Empty', but Empty is a free click, so we will reveal it
                 knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Empty)];
             }
         }
     }
 
+    // if we have a number tile with 1 neighbor with unknown power, then we can compute its power
+    for (let i = 0; i < state.actors.length; i++) {
+        let a = state.actors[i];
+
+        let number = getVisibleAttackNumber(a);
+
+        if (number == null) {
+            continue;
+        }
+
+        const unknown_neighs = getNeighborsWithDiagonals(a.tx, a.ty).filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == null);
+
+        if (unknown_neighs.length != 1) {
+            continue;
+        }
+        // unknown power neighbor
+        let u = unknown_neighs[0];
+
+        let knownPower = 0;
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            let nPower = knownGameState.grid[n.ty][n.tx].knownPower();
+            if (nPower != null) {
+                knownPower += nPower;
+            }
+        }
+
+        const missingPower = number - knownPower;
+        knownGameState.grid[u.ty][u.tx].possibleActors = knownGameState.grid[u.ty][u.tx].possibleActors.filter((a) => a.monsterLevel == missingPower);
+    }
+
+    // if we have a chest where only mimic can be, we found him
+    for (let i = 0; i < state.actors.length; i++) {
+        let a = state.actors[i];
+
+        if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Mimic) {
+            knownGameState.mimicFound = [a.ty, a.tx];
+        }
+    }
 }
 
 // clicks revealed objects which have no downside
@@ -2020,8 +2059,6 @@ function getRevealingEmptySpaceClick() {
 }
 
 function maybeGetNextClick() {
-
-    updateKnownGameState();
 
     let click = null;
     click = click ?? getFreeRevealedClick();
@@ -3236,9 +3273,12 @@ function updatePlaying(ctx, dt) {
         screeny = rnd(-1, 1);
     }
 
+    updateKnownGameState();
+
     // rendering
     ctx.save();
     ctx.translate(screenx, screeny);
+
     // ctx.fillStyle = "#30291f";
     // ctx.fillRect(0, 0, worldR.w, worldR.h);
     let showEverything = state.status == GameStatus.Dead;
@@ -3324,6 +3364,22 @@ function updatePlaying(ctx, dt) {
 
         if (a.mark > 0 && !a.revealed && !showEverything) {
             drawMarker(ctx, a.mark, centerx, centery);
+        }
+    }
+
+    // knownGameState hints - show tiles whose power we know
+    for (let i = 0; i < state.gridH; i++) {
+        for (let k = 0; k < state.gridW; k++) {
+            if (getActorAt(k, i).revealed) {
+                continue;
+            }
+
+            const knownPower = knownGameState.grid[i][k].knownPower();
+
+            if (knownPower != null) {
+                const r = getRectForTile(k, i);
+                fontUIBlue.drawLine(ctx, "" + knownPower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
+            }
         }
     }
 
@@ -3725,6 +3781,12 @@ function onUpdate(phase, dt) {
             false, 0xf7e26b);
         fontUIYellow.char_sep -= 1;
         fontUIYellow.spaceWidth = 5;
+
+        fontUIBlue = loadFont("ingame_font.png", 8, 8, 0, 8,
+            "1234567890!#$%&*()-+=[]:;\"'<>,.?/ABCDEFGHIJKLMNOPQRSTUVWXYZ _",
+            false, 0x1ff);
+        fontUIBlue.char_sep -= 1;
+        fontUIBlue.spaceWidth = 5;
 
         fontUIBlackDark = loadFont("ingame_font.png", 8, 8, 0, 8,
             "1234567890!#$%&*()-+=[]:;\"'<>,.?/ABCDEFGHIJKLMNOPQRSTUVWXYZ _",
