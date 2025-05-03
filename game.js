@@ -1723,9 +1723,29 @@ function getAttackNumber(tx, ty) {
     return ret;
 }
 
+// Solver code
+
+function looksLikeClosedChest(actor) {
+    return actor.revealed && (actor.id == ActorId.Chest || actor.mimicMimicking);
+}
+
+function getVisibleAttackNumber(actor) {
+    if (!actor.revealed || !isEmpty(actor)) {
+        return null;
+    }
+
+    if (state.actors.find(b => b.id == ActorId.Gazer && !b.defeated && distance(b.tx, b.ty, actor.tx, actor.ty) <= 2) != undefined) {
+        return null;
+    }
+
+    return getAttackNumber(actor.tx, actor.ty);
+}
+
 class KnownGameStateGridSquare {
-    constructor() {
+    constructor(tx, ty) {
         this.possibleActors = [];
+        this.tx = tx;
+        this.ty = ty;
     }
 
     knownPower() {
@@ -1737,9 +1757,18 @@ class KnownGameStateGridSquare {
 
     knownActor() {
         if (this.possibleActors.length == 1) {
-            return this.possibleActors[0].actorId;
+            return this.possibleActors[0].id;
         }
         return null;
+    }
+
+    isXp() {
+        let a = getActorAt(this.tx, this.ty);
+        return a.revealed && a.isMonster && a.defeated && a.xp > 0;
+    }
+
+    isSpell() {
+        return this.possibleActors.every((a) => a.id == ActorId.Orb || a.id == ActorId.SpellDisarm || a.id == ActorId.SpellMakeOrb || a.id == ActorId.SpellRevealRats || a.id == ActorId.SpellRevealSlimes);
     }
 }
 
@@ -1748,7 +1777,7 @@ function constructInitialGrid() {
     for (let i = 0; i < state.gridH; i++) {
         grid[i] = [];
         for (let k = 0; k < state.gridW; k++) {
-            grid[i][k] = new KnownGameStateGridSquare();
+            grid[i][k] = new KnownGameStateGridSquare(k, i);
         }
     }
 
@@ -1764,12 +1793,12 @@ function constructInitialGrid() {
     grid[4][Math.floor(state.gridW / 2)].possibleActors = [makeActor(ActorId.Dragon)];
 
     // DragonEgg: around dragon
-    for (let dx = -1; dx <= 1; ++dx) {
-        for (let dy = -1; dy <= 1; ++dy) {
+    for (let dy = -1; dy <= 1; ++dy) {
+        for (let dx = -1; dx <= 1; ++dx) {
             if (!dx && !dy) {
                 continue;
             }
-            grid[4 + dx][Math.floor(state.gridW / 2) + dy].possibleActors.push(makeActor(ActorId.DragonEgg));
+            grid[4 + dy][Math.floor(state.gridW / 2) + dx].possibleActors.push(makeActor(ActorId.DragonEgg));
         }
     }
 
@@ -1826,63 +1855,164 @@ function constructInitialGrid() {
 class KnownGameState {
     constructor() {
         this.grid = constructInitialGrid();
+        this.mimicFound = null;
     }
-}
 
-
-function getXpClick() {
-    for (let i = 0; i < state.actors.length; i++) {
-        let a = state.actors[i];
-        if (a.revealed && a.id == ActorId.Treasure) {
-            return i;
+    // Assumes chest-like object is revealed at tx,ty
+    couldBeChest(tx, ty) {
+        // Dumb impl, true unless we know the mimic is here
+        if (this.MimicFound) {
+            return this.mimicFound[0] != ty || this.mimicFound[1] != tx;
         }
-        if (a.revealed && a.isMonster && a.defeated && a.xp > 0) {
-            return i;
-        }
+        return true;
     }
-    return null;
-}
 
-function getScrollClick() {
-    for (let i = 0; i < state.actors.length; i++) {
-        let a = state.actors[i];
-        if (!a.revealed) {
-            continue;
-        }
-        if (a.id == ActorId.SpellMakeOrb || a.id == ActorId.SpellDisarm || a.id == ActorId.SpellRevealRats || a.id == ActorId.SpellRevealSlimes || a.id == ActorId.Orb) {
-            return i;
-        }
-    }
-    return null;
-}
-
-function getFreeEmptySpaceClick() {
-    for (let i = 0; i < state.actors.length; i++) {
-        let a = state.actors[i];
-        if (!isEmpty(a) || !a.revealed) {
-            continue;
+    // Assumes chest-like object is revelead at tx,ty
+    couldBeMimic(tx, ty) {
+        // Dumb impl, true if we can fit a power 11 inside
+        if (this.mimicFound) {
+            return this.mimicFound[0] == ty && this.mimicFound[1] == tx;
         }
 
-        if (state.actors.find(b => b.id == ActorId.Gazer && !b.defeated && distance(b.tx, b.ty, a.tx, a.ty) <= 2) != undefined) {
-            continue;
-        }
+        // For each neighbor that shows a number
+        for (let n of getNeighborsWithDiagonals(tx, ty)) {
+            const number = getVisibleAttackNumber(n);
+            if (number == null) {
+                continue;
+            }
 
-        let number = getAttackNumber(a.tx, a.ty);
-        let visibleNumbers = 0;
-        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
-            if (n.revealed && n.monsterLevel > 0 && !n.mimicMimicking) {
-                visibleNumbers += n.monsterLevel;
+            // Sum up all known powers of its neighbors
+            let knownNumber = 0;
+            for (let nn of getNeighborsWithDiagonals(n.tx, n.ty)) {
+                if (nn.tx == tx && nn.ty == ty) {
+                    continue;
+                }
+
+                const knownPower = this.grid[nn.ty][nn.tx].knownPower();
+                if (knownPower != null) {
+                    knownNumber += knownPower;
+                }
+            }
+
+            if (number - knownNumber < 11) {
+                console.log(`No mimic at ${ty} ${tx} because ${n.ty} ${n.tx} shows ${number} and sees ${knownNumber}`);
+                return false;
             }
         }
 
-        if (number != visibleNumbers) {
+        return true;
+    }
+}
+
+function updateKnownGameState() {
+    // we know where revealed things are
+    // chest can be a mimic and vice-versa
+    for (let a of state.actors) {
+        if (!a.revealed) {
+            continue;
+        }
+
+        if (a.id != ActorId.Chest && a.id != ActorId.Mimic) {
+            knownGameState.grid[a.ty][a.tx].possibleActors = [a];
+            continue;
+        }
+
+        // if we know where the mimic is, we know if this is a mimic or chest
+        if (knownGameState.mimicFound) {
+            if (knownGameState.mimicFound[0] == a.ty && knownGameState.mimicFound[1] == a.tx) {
+                if (a.id != ActorId.Mimic) {
+                    console.log(`ERROR: at ${a.ty} ${a.tx} should be mimic, but there is ${a.id}`);
+                }
+                knownGameState.grid[a.ty][a.tx].possibleActors = [a];
+            }
+            else {
+                if (a.id == ActorId.Mimic) {
+                    console.log(`ERROR: believe to have found mimic at ${knownGameState.mimicFound}, but he is at ${a.ty} ${a.tx}`);
+                }
+                knownGameState.grid[a.ty][a.tx].possibleActors = [a];
+            }
+        }
+        else {
+            knownGameState.grid[a.ty][a.tx].possibleActors = [];
+            if (knownGameState.couldBeChest(a.tx, a.ty)) {
+                knownGameState.grid[a.ty][a.tx].possibleActors.push(makeActor(ActorId.Chest));
+            }
+            if (knownGameState.couldBeMimic(a.tx, a.ty))
+                knownGameState.grid[a.ty][a.tx].possibleActors.push(makeActor(ActorId.Mimic));
+        }
+
+    }
+
+    // if we have a number tile (with visible number)
+    // and the known actors surrounding it sum up to that number
+    // then all other tiles around it are zeroes
+    for (let i = 0; i < state.actors.length; i++) {
+        let a = state.actors[i];
+
+        let number = getVisibleAttackNumber(a);
+
+        if (number == null) {
+            continue;
+        }
+
+        let knownNumber = 0;
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            const knownPower = knownGameState.grid[n.ty][n.tx].knownPower();
+            if (knownPower != null) {
+                knownNumber += knownPower;
+            }
+        }
+
+        if (number != knownNumber) {
             continue;
         }
 
         for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
             if (!n.revealed) {
-                return getActorIndexAt(n.tx, n.ty);
+                // might not be 'Empty', but Empty is a free click, so we will reveal it
+                knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Empty)];
             }
+        }
+    }
+
+}
+
+// clicks revealed objects which have no downside
+// treasure
+// xp
+// gnome
+// spells
+function getFreeRevealedClick() {
+    for (let i = 0; i < state.actors.length; i++) {
+        let a = state.actors[i];
+        if (!a.revealed) {
+            continue;
+        }
+
+        let g = knownGameState.grid[a.ty][a.tx];
+        if (g.knownActor() == ActorId.Crown) {
+            continue;
+        }
+
+        if (g.isXp() || g.knownActor() == ActorId.Treasure || g.knownActor() == ActorId.Gnome || g.isSpell()) {
+            console.log(`Clicking ${a.ty} ${a.tx} because it is revealed and xp/treasure/gnome/spell`);
+            return i;
+        }
+    }
+    return null;
+}
+
+// clicks unrevealed squares with 0 power
+function getRevealingEmptySpaceClick() {
+    for (let i = 0; i < state.actors.length; i++) {
+        let a = state.actors[i];
+        if (a.revealed && !looksLikeClosedChest(a)) {
+            continue;
+        }
+
+        if (knownGameState.grid[a.ty][a.tx].knownPower() == 0 && knownGameState.grid[a.ty][a.tx].knownActor() != ActorId.Crown) {
+            console.log(`Clicking ${a.ty} ${a.tx} because it is unrevealed and 0 power`);
+            return i;
         }
     }
 
@@ -1890,12 +2020,16 @@ function getFreeEmptySpaceClick() {
 }
 
 function maybeGetNextClick() {
+
+    updateKnownGameState();
+
     let click = null;
-    click = click ?? getXpClick();
-    click = click ?? getScrollClick();
-    click = click ?? getFreeEmptySpaceClick();
+    click = click ?? getFreeRevealedClick();
+    click = click ?? getRevealingEmptySpaceClick();
     return click;
 }
+
+// End of solver code
 
 function updateBook(ctx, dt, worldR, HUDRect, clickedLeft) {
     let bookR = new Rect();
