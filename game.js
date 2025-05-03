@@ -1871,6 +1871,7 @@ class KnownGameState {
         this.mimicFound = null;
         this.loversFound = false;
         this.guardFound = [[false, false], [false, false]];
+        this.bigSlimesFound = false;
     }
 
     disarmMines() {
@@ -2175,7 +2176,24 @@ function updateKnownGameState() {
             }
 
             knownGameState.guardFound[yq][xq] = true;
+        }
+    }
 
+    // Clear out big slimes which are too far away from reality
+    if (!knownGameState.bigSlimesFound) {
+        for (let a of state.actors) {
+            if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.BigSlime) {
+                console.log(`Spotted a big slime, clearing out far away squares`);
+                knownGameState.bigSlimesFound = true;
+                for (let i = 0; i < state.gridH; ++i) {
+                    for (let k = 0; k < state.gridW; ++k) {
+                        if (distance(a.ty, a.tx, i, k) > 2.25) {
+                            console.log(`${i}, ${k}`);
+                            knownGameState.grid[i][k].removePossibleActor(ActorId.BigSlime);
+                        }
+                    }
+                }
+            }
         }
     }
 }
