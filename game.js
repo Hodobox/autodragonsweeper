@@ -1761,6 +1761,9 @@ class KnownGameStateGridSquare {
         if (!this.possibleActors.every((actor) => actor.monsterLevel == this.possibleActors[0].monsterLevel)) {
             return null;
         }
+        if (this.possibleActors.length == 0) {
+            console.log(`ERROR: empty possible actors list at ${this.ty}, ${this.tx}`);
+        }
         return this.possibleActors[0].monsterLevel;
     }
 
@@ -1938,11 +1941,16 @@ class KnownGameState {
 }
 
 function updateKnownGameState() {
+
     // we know where revealed things are
     // chest can be a mimic and vice-versa
     for (let a of state.actors) {
         if (!a.revealed) {
             continue;
+        }
+
+        if (a.id == ActorId.DragonEgg) {
+            knownGameState.dragonEggFound = true;
         }
 
         if (a.id != ActorId.Chest && a.id != ActorId.Mimic) {
@@ -2152,7 +2160,7 @@ function updateKnownGameState() {
         const possibleMineNeighs = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].worstCasePower() == 100);
 
         if (possibleMineNeighs.length == numMines) {
-            console.log(`Need ${numMines} for ${a.ty}, ${a.tx} and exactly as many spots!`);
+            console.log(`Need ${numMines} mines around ${a.ty}, ${a.tx} and exactly as many spots!`);
             knownGameState.grid[a.ty][a.tx].neighborMinesPopulated = true;
             for (let n of possibleMineNeighs) {
                 knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Mine)];
@@ -2163,8 +2171,8 @@ function updateKnownGameState() {
     // Clear out guardians from each respective quadrant if we have found one
     for (let a of state.actors) {
         if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Guard) {
-            const xq = Number(a.tx > 4);
-            const yq = Number(a.ty > 6);
+            const xq = Number(a.tx > 6);
+            const yq = Number(a.ty > 4);
             if (knownGameState.guardFound[yq][xq]) {
                 continue;
             }
@@ -2211,11 +2219,19 @@ function updateKnownGameState() {
             }
         }
     }
+    knownGameState.revealedBySpells = [];
 
-    // If we haven't found the dragon's egg, and there is only one adjacent square next to the dragon left, that's it.
-    // if(!knownGameState.dragonEggFound) {
-    //        TODO
-    // }
+    //If we haven't found the dragon's egg, and there is only one adjacent square next to the dragon left, that's it.
+    if (!knownGameState.dragonEggFound) {
+        let neighs = getNeighborsWithDiagonals(Math.floor(state.gridW / 2), 4);
+        let zeros = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == 0 && !n.revealed);
+        let unknown = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == null);
+        if (zeros.length == 0 && unknown.length == 1) {
+            let n = unknown[0];
+            console.log(`Found the dragon egg at ${n.ty} ${n.tx}`);
+            knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.DragonEgg)];
+        }
+    }
 }
 
 // clicks revealed objects which have no downside
