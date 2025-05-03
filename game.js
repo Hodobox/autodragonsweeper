@@ -1870,6 +1870,7 @@ class KnownGameState {
         this.grid = constructInitialGrid();
         this.mimicFound = null;
         this.loversFound = false;
+        this.guardFound = [[false, false], [false, false]];
     }
 
     disarmMines() {
@@ -1894,7 +1895,7 @@ class KnownGameState {
         return true;
     }
 
-    // Assumes chest-like object is revelead at tx,ty
+    // Assumes chest-like object is revealed at tx,ty
     couldBeMimic(tx, ty) {
         // Dumb impl, true if we can fit a power 11 inside
         if (this.mimicFound) {
@@ -2151,6 +2152,30 @@ function updateKnownGameState() {
             for (let n of possibleMineNeighs) {
                 knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Mine)];
             }
+        }
+    }
+
+    // Clear out guardians from each respective quadrant if we have found one
+    for (let a of state.actors) {
+        if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Guard) {
+            const xq = Number(a.tx > 4);
+            const yq = Number(a.ty > 6);
+            if (knownGameState.guardFound[yq][xq]) {
+                continue;
+            }
+
+            console.log(`Found guard in quadrant y=${yq} x=${xq}`);
+
+            for (let x = xq * 7; x < xq * 7 + 6; ++x) {
+                for (let y = yq * 5; y < yq * 5 + 4 + yq; ++y) {
+                    if (x != a.tx || y != a.ty) {
+                        knownGameState.grid[y][x].removePossibleActor(ActorId.Guard);
+                    }
+                }
+            }
+
+            knownGameState.guardFound[yq][xq] = true;
+
         }
     }
 }
@@ -3516,8 +3541,12 @@ function updatePlaying(ctx, dt) {
     for (let i = 0; i < state.gridH; i++) {
         for (let k = 0; k < state.gridW; k++) {
 
-            if (getActorAt(k, i).revealed) {
-                if (knownGameState.mimicFound == null || knownGameState.mimicFound[0] != i || knownGameState.mimicFound[1] != k || getActorAt(k, i).defeated) {
+            let actor = getActorAt(k, i);
+            if (actor.revealed) {
+                if (!looksLikeClosedChest(actor)) {
+                    continue;
+                }
+                if (!knownGameState.couldBeMimic(k, i)) {
                     continue;
                 }
             }

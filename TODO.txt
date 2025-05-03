@@ -1,4 +1,3 @@
-found guard should clear his quadrant of other guards
 slimes should help find wizard (somehow)
 slimes should clear anything thats too far (for simplicity)
 last corner if we dont know mineking is him
