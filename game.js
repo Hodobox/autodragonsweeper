@@ -1749,6 +1749,7 @@ class KnownGameStateGridSquare {
         this.possibleActors = [];
         this.tx = tx;
         this.ty = ty;
+        this.wallNeighborFound = false;
     }
 
     removePossibleActor(actorId) {
@@ -2106,6 +2107,27 @@ function updateKnownGameState() {
             }
 
             knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel <= missingPower);
+        }
+    }
+
+    // Walls with no wall neighbor and last remaining diagonal neighbor -> wall
+    for (let a of state.actors) {
+        if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Wall && !knownGameState.grid[a.ty][a.tx].wallNeighborFound) {
+            let neighs = getNeighborsCross(a.tx, a.ty);
+            if (neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownActor() == ActorId.Wall).length) {
+                knownGameState.grid[a.ty][a.tx].wallNeighborFound = true;
+                continue;
+            }
+            let unknown_neighs = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == null);
+
+            if (unknown_neighs.length != 1) {
+                continue;
+            }
+            let n = unknown_neighs[0];
+            console.log(`Wall ${a.ty}, ${a.tx} found neighbor at ${n.ty}, ${n.tx}`);
+            knownGameState.grid[a.ty][a.tx].wallNeighborFound = true;
+            knownGameState.grid[n.ty][n.tx].wallNeighborFound = true;
+            knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Wall)];
         }
     }
 }

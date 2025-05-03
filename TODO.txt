@@ -4,4 +4,3 @@ slimes should clear anything thats too far (for simplicity)
 mine with only one possibility should be spotted
 last corner if we dont know mineking is him
 last square next to dragon if we dont have egg is it
-wall with only 1 unknown neighbor -> is a wall
