@@ -1872,6 +1872,10 @@ class KnownGameState {
         this.loversFound = false;
         this.guardFound = [[false, false], [false, false]];
         this.bigSlimesFound = false;
+        this.dragonEggFound = false;
+        // at end of update, remove each entity from below list
+        // from possible actors, unless it is exactly it
+        this.revealedBySpells = [];
     }
 
     disarmMines() {
@@ -2195,6 +2199,23 @@ function updateKnownGameState() {
             }
         }
     }
+
+    // Remove possibility of revealed entities from spaces which don't contain them
+    for (let revealed of knownGameState.revealedBySpells) {
+        console.log(`Cleaning out non-revealed instances of ${revealed}`);
+        for (let y = 0; y < state.gridH; y++) {
+            for (let x = 0; x < state.gridW; x++) {
+                if (knownGameState.grid[y][x].knownActor() != revealed) {
+                    knownGameState.grid[y][x].removePossibleActor(revealed);
+                }
+            }
+        }
+    }
+
+    // If we haven't found the dragon's egg, and there is only one adjacent square next to the dragon left, that's it.
+    // if(!knownGameState.dragonEggFound) {
+    //        TODO
+    // }
 }
 
 // clicks revealed objects which have no downside
@@ -2729,6 +2750,12 @@ function updatePlaying(ctx, dt) {
         if (clickedActorIndex >= 0) {
             if (activeActors[clickedActorIndex].id == ActorId.SpellDisarm) {
                 knownGameState.disarmMines();
+            }
+            else if (activeActors[clickedActorIndex].id == ActorId.SpellRevealSlimes) {
+                knownGameState.revealedBySpells.push(ActorId.Slime);
+            }
+            else if (activeActors[clickedActorIndex].id == ActorId.SpellRevealRats) {
+                knownGameState.revealedBySpells.push(ActorId.Rat);
             }
         }
     }
