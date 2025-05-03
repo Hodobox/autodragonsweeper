@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-// @ts-check
+// @ts-nocheck
 "use_strict"
 
 let RELEASE = true;
@@ -47,6 +47,8 @@ let stripStamps;
 let stripStoryteller;
 /** @type {GameState} */
 let state;
+/** @type {KnownGameState} */
+let knownGameState;
 let collectedStamps = [];
 
 let sndEvents = {};
@@ -216,6 +218,97 @@ class ActorId {
     static Crown = "crown";
     static Fidel = "fidel";
     static DragonEgg = "dragon_egg";
+}
+
+function makeActor(actorId) {
+    let a = new Actor();
+
+    if (actorId == ActorId.Empty) {
+        makeEmpty(a);
+    }
+    else if (actorId == ActorId.Orb) {
+        makeOrb(a);
+    }
+    else if (actorId == ActorId.SpellMakeOrb) {
+        makeSpellOrb(a);
+    }
+    else if (actorId == ActorId.Mine) {
+        makeMine(a);
+    }
+    else if (actorId == ActorId.MineKing) {
+        makeMineKing(a);
+    }
+    else if (actorId == ActorId.Dragon) {
+        makeDragon(a);
+    }
+    else if (actorId == ActorId.Wall) {
+        makeWall(a);
+    }
+    else if (actorId == ActorId.Mimic) {
+        makeMimic(a);
+    }
+    else if (actorId == ActorId.Medikit) {
+        makeMedikit(a);
+    }
+    else if (actorId == ActorId.RatKing) {
+        makeRatKing(a);
+    }
+    else if (actorId == ActorId.Rat) {
+        makeRat1(a);
+    }
+    else if (actorId == ActorId.Slime) {
+        makeSlime5(a);
+    }
+    else if (actorId == ActorId.Gargoyle) {
+        makeGargoyle4(a);
+    }
+    else if (actorId == ActorId.Minotaur) {
+        makeMinotaur6(a);
+    }
+    else if (actorId == ActorId.Chest) {
+        makeChest(a);
+    }
+    else if (actorId == ActorId.Skeleton) {
+        makeSkeleton3(a);
+    }
+    else if (actorId == ActorId.Treasure) {
+        makeTreasure5(a);
+    }
+    else if (actorId == ActorId.Snake) {
+        makeSnake7(a);
+    }
+    else if (actorId == ActorId.Giant) {
+        makeGiant9(a);
+    } else if (actorId == ActorId.Decoration) {
+        makeDecoration(a);
+    } else if (actorId == ActorId.Wizard) {
+        makeWizard(a);
+    } else if (actorId == ActorId.Gazer) {
+        makeGazer(a);
+    } else if (actorId == ActorId.SpellDisarm) {
+        makeSpellDisarm(a);
+    } else if (actorId == ActorId.BigSlime) {
+        makeBigSlime8(a);
+    } else if (actorId == ActorId.SpellRevealRats) {
+        makeSpellRevealRats(a);
+    } else if (actorId == ActorId.SpellRevealSlimes) {
+        makeSpellRevealSlimes(a);
+    } else if (actorId == ActorId.Gnome) {
+        makeGnome(a);
+    } else if (actorId == ActorId.Bat) {
+        makeBat2(a);
+    } else if (actorId == ActorId.Guard) {
+        makeGuard7(a);
+    } else if (actorId == ActorId.Crown) {
+        makeCrown(a);
+    } else if (actorId == ActorId.Fidel) {
+        makeFidel(a);
+    }
+    else if (actorId == ActorId.DragonEgg) {
+        makeDragon(a);
+    }
+
+    return a;
 }
 
 class Actor {
@@ -400,17 +493,19 @@ function newGame() {
     state.player.level = 1;
     state.player.maxHP = 6;
     state.player.hp = state.player.maxHP;
+    state.gridW = 13;
+    state.gridH = 10;
 
     state.status = GameStatus.GeneratingDungeon;
     state.waitForAFrameBeforeGeneration = true;
 
     // state.crownAnimation.loop([10, 11, 12, 13 ,14 ,15 ,16, 17], 9);
     state.crownAnimation.loop([4, 5, 6], 9);
+
+    knownGameState = new KnownGameState();
 }
 
 function generateDungeon() {
-    state.gridW = 13;
-    state.gridH = 10;
 
     // generator
     /** @type {RandomGeneratorLayer} */
@@ -1628,12 +1723,112 @@ function getAttackNumber(tx, ty) {
     return ret;
 }
 
-// class KnownGameState{
-//     constructor()
-//     {
-//         this.RatKingColumn = [0, state.gridW];
-//     }
-// }
+class KnownGameStateGridSquare {
+    constructor() {
+        this.possibleActors = [];
+    }
+
+    knownPower() {
+        if (!this.possibleActors.every((actor) => actor.monsterLevel == this.possibleActors[0].monsterLevel)) {
+            return null;
+        }
+        return this.possibleActors[0].monsterLevel;
+    }
+
+    knownActor() {
+        if (this.possibleActors.length == 1) {
+            return this.possibleActors[0].actorId;
+        }
+        return null;
+    }
+}
+
+function constructInitialGrid() {
+    let grid = [];
+    for (let i = 0; i < state.gridH; i++) {
+        grid[i] = [];
+        for (let k = 0; k < state.gridW; k++) {
+            grid[i][k] = new KnownGameStateGridSquare();
+        }
+    }
+
+    // Could be anywhere
+    for (let actorId of [ActorId.Bat, ActorId.Chest, ActorId.Empty, ActorId.Gargoyle, ActorId.Gazer, ActorId.Mimic, ActorId.Mine, ActorId.Minotaur, ActorId.Rat, ActorId.RatKing, ActorId.Skeleton, ActorId.Slime, ActorId.Wall]) {
+        for (let i = 0; i < state.gridH; i++) {
+            for (let k = 0; k < state.gridW; k++) {
+                grid[i][k].possibleActors.push(makeActor(actorId));
+            }
+        }
+    }
+    // Dragon: Middle
+    grid[4][Math.floor(state.gridW / 2)].possibleActors = [makeActor(ActorId.Dragon)];
+
+    // DragonEgg: around dragon
+    for (let dx = -1; dx <= 1; ++dx) {
+        for (let dy = -1; dy <= 1; ++dy) {
+            if (!dx && !dy) {
+                continue;
+            }
+            grid[4 + dx][Math.floor(state.gridW / 2) + dy].possibleActors.push(makeActor(ActorId.DragonEgg));
+        }
+    }
+
+    // MineKing: corners
+    grid[0][0].possibleActors.push(makeActor(ActorId.MineKing));
+    grid[0][state.gridW - 1].possibleActors.push(makeActor(ActorId.MineKing));
+    grid[state.gridH - 1][0].possibleActors.push(makeActor(ActorId.MineKing));
+    grid[state.gridH - 1][state.gridW - 1].possibleActors.push(makeActor(ActorId.MineKing));
+
+    // Giant: not central column
+    // Guard: not central column or row
+    for (let i = 0; i < state.gridH; i++) {
+        const isCentralRow = (i == 4);
+        for (let k = 0; k < state.gridW; k++) {
+            const isCentralCol = (k == Math.floor(state.gridW / 2));
+
+            if (!isCentralCol) {
+                grid[i][k].possibleActors.push(makeActor(ActorId.Giant));
+            }
+
+            if (!isCentralCol && !isCentralRow) {
+                grid[i][k].possibleActors.push(makeActor(ActorId.Guard));
+            }
+        }
+    }
+
+    // Wizard: Edge, not corner
+    for (let i = 1; i < state.gridH - 1; i++) {
+        grid[i][0].possibleActors.push(makeActor(ActorId.Wizard));
+        grid[i][state.gridW - 1].possibleActors.push(makeActor(ActorId.Wizard));
+    }
+    for (let k = 1; k < state.gridW - 1; k++) {
+        grid[0][k].possibleActors.push(makeActor(ActorId.Wizard));
+        grid[state.gridH - 1][k].possibleActors.push(makeActor(ActorId.Wizard));
+    }
+
+    // BigSlime: Edge or 1 from Edge
+    for (let i = 0; i < state.gridH; i++) {
+        grid[i][0].possibleActors.push(makeActor(ActorId.BigSlime));
+        grid[i][1].possibleActors.push(makeActor(ActorId.BigSlime));
+        grid[i][state.gridW - 1].possibleActors.push(makeActor(ActorId.BigSlime));
+        grid[i][state.gridW - 2].possibleActors.push(makeActor(ActorId.BigSlime));
+    }
+    for (let k = 2; k < state.gridW - 2; k++) {
+        grid[0][k].possibleActors.push(makeActor(ActorId.BigSlime));
+        grid[1][k].possibleActors.push(makeActor(ActorId.BigSlime));
+        grid[state.gridH - 1][k].possibleActors.push(makeActor(ActorId.BigSlime));
+        grid[state.gridH - 2][k].possibleActors.push(makeActor(ActorId.BigSlime));
+    }
+
+    return grid;
+}
+
+class KnownGameState {
+    constructor() {
+        this.grid = constructInitialGrid();
+    }
+}
+
 
 function getXpClick() {
     for (let i = 0; i < state.actors.length; i++) {
@@ -1686,12 +1881,7 @@ function getFreeEmptySpaceClick() {
 
         for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
             if (!n.revealed) {
-                for (let idx = 0; idx < state.actors.length; idx++) {
-                    if (n.tx == state.actors[idx].tx && n.ty == state.actors[idx].ty) {
-                        console.log("" + n.tx + " " + n.ty + " is free");
-                        return idx;
-                    }
-                }
+                return getActorIndexAt(n.tx, n.ty);
             }
         }
     }
