@@ -326,6 +326,7 @@ class Actor {
         this.monsterLevel = 0;
         this.xp = 0;
         this.mimicMimicking = false; // TODO: necessary?
+        this.facingDirection = -1; // up, right, down, left. For gargoyles and rats, for solver.
         this.defeated = false;
         this.mark = 0;
         this.trapDisarmed = false;
@@ -346,6 +347,7 @@ class Actor {
         this.monsterLevel = other.monsterLevel;
         this.xp = other.xp;
         this.mimicMimicking = other.mimicMimicking;
+        this.facingDirection = other.facingDirection;
         this.defeated = other.defeated;
         this.mark = other.mark;
         this.trapDisarmed = other.trapDisarmed;
@@ -629,10 +631,10 @@ function generateDungeon() {
                         let twin = state.actors.find(b => b.id == a.id && b.name == a.name && b !== a);
                         if (twin != undefined) {
                             // a.stripFrame = stripXYToFrame(20, 212);
-                            if (a.tx < twin.tx) a.stripFrame = stripXYToFrame(0, 210);
-                            else if (a.tx > twin.tx) a.stripFrame = stripXYToFrame(0, 210) + 3;
-                            else if (a.ty < twin.ty) a.stripFrame = stripXYToFrame(0, 210) + 1;
-                            else if (a.ty > twin.ty) a.stripFrame = stripXYToFrame(0, 210) + 2;
+                            if (a.tx < twin.tx) { a.stripFrame = stripXYToFrame(0, 210); a.facingDirection = 1; }
+                            else if (a.tx > twin.tx) { a.stripFrame = stripXYToFrame(0, 210) + 3; a.facingDirection = 3; }
+                            else if (a.ty < twin.ty) { a.stripFrame = stripXYToFrame(0, 210) + 1; a.facingDirection = 2; }
+                            else if (a.ty > twin.ty) { a.stripFrame = stripXYToFrame(0, 210) + 2; a.facingDirection = 0; }
                         }
                         else {
                             console.assert(false);
@@ -2057,7 +2059,14 @@ function updateKnownGameState() {
         }
     }
 
-
+    // Gargoyles face each other. We can find the twin if we see one.
+    for (let a of state.actors) {
+        if (a.revealed && a.id == ActorId.Gargoyle) {
+            const twinx = a.tx + [0, 1, 0, -1][a.facingDirection];
+            const twiny = a.ty + [-1, 0, 1, 0][a.facingDirection];
+            knownGameState.grid[twiny][twinx].possibleActors = [makeActor(ActorId.Gargoyle)];
+        }
+    }
 }
 
 // clicks revealed objects which have no downside
