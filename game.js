@@ -2633,7 +2633,8 @@ function updatePlaying(ctx, dt) {
         }
     }
 
-    if (clickedLeft && state.status == GameState.Playing) {
+    console.log(state.status);
+    if (clickedLeft && state.status == GameStatus.Playing) {
         let maybeClick = maybeGetNextClick();
         if (maybeClick != null) {
             clickedActorIndex = maybeClick;
