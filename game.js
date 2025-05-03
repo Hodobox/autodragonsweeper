@@ -2188,7 +2188,6 @@ function updateKnownGameState() {
                 for (let i = 0; i < state.gridH; ++i) {
                     for (let k = 0; k < state.gridW; ++k) {
                         if (distance(a.ty, a.tx, i, k) > 2.25) {
-                            console.log(`${i}, ${k}`);
                             knownGameState.grid[i][k].removePossibleActor(ActorId.BigSlime);
                         }
                     }
