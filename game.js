@@ -306,7 +306,7 @@ function makeActor(actorId) {
         makeFidel(a);
     }
     else if (actorId == ActorId.DragonEgg) {
-        makeDragon(a);
+        makeDragonEgg(a);
     }
 
     return a;
@@ -1762,6 +1762,10 @@ class KnownGameStateGridSquare {
         return this.possibleActors[0].monsterLevel;
     }
 
+    worstCasePower() {
+        return Math.max(...this.possibleActors.map((a) => a.monsterLevel));
+    }
+
     knownActor() {
         if (this.possibleActors.length == 1) {
             return this.possibleActors[0].id;
@@ -1873,6 +1877,7 @@ class KnownGameState {
                 if (knownGameState.grid[i][k].knownActor() == ActorId.Mine) {
                     knownGameState.grid[i][k].possibleActors = [makeActor(ActorId.Treasure)];
                 }
+                else knownGameState.grid[i][k].removePossibleActor(ActorId.Mine);
             }
         }
     }
@@ -2033,6 +2038,13 @@ function updateKnownGameState() {
             if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Mimic) {
                 console.log(`Found mimic at ${a.ty}, ${a.tx}`);
                 knownGameState.mimicFound = [a.ty, a.tx];
+                for (let y = 0; y < state.gridH; ++y) {
+                    for (let x = 0; x < state.gridW; ++x) {
+                        if (y != a.ty || x != a.tx) {
+                            knownGameState.grid[y][x].removePossibleActor(ActorId.Mimic);
+                        }
+                    }
+                }
             }
         }
     }
@@ -3027,9 +3039,9 @@ function updatePlaying(ctx, dt) {
                 if (a.id == ActorId.Rat) {
                     let king = state.actors.find(b => b.id == ActorId.RatKing);
                     if (king != undefined) {
-                        if (a.tx == king.tx) a.stripFrame = stripXYToFrame(90, 260) + 3;
-                        else if (king.tx > a.tx) a.stripFrame = stripXYToFrame(90, 260);
-                        else a.stripFrame = stripXYToFrame(90, 260) + 2;
+                        if (a.tx == king.tx) { a.stripFrame = stripXYToFrame(90, 260) + 3; a.facingDirection = 0; }
+                        else if (king.tx > a.tx) { a.stripFrame = stripXYToFrame(90, 260); a.facingDirection = 1; }
+                        else { a.stripFrame = stripXYToFrame(90, 260) + 2; a.facingDirection = 3; }
                         // if(king.tx < a.tx) a.stripFrame = stripXYToFrame(90, 260);
                         // else if(king.tx == a.tx) a.stripFrame = stripXYToFrame(90, 260)+1;
                         // else if(king.tx < a.tx) a.stripFrame = stripXYToFrame(90, 260)+2;
@@ -3441,6 +3453,14 @@ function updatePlaying(ctx, dt) {
             if (knownPower != null) {
                 const r = getRectForTile(k, i);
                 fontUIBlue.drawLine(ctx, "" + knownPower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
+                continue;
+            }
+
+            // show worst-case scenario if its not a mine
+            const worstCasePower = knownGameState.grid[i][k].worstCasePower();
+            if (worstCasePower != 100) {
+                const r = getRectForTile(k, i);
+                fontUIRed.drawLine(ctx, "" + worstCasePower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
             }
         }
     }
