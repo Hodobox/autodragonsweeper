@@ -2042,6 +2042,7 @@ function updateKnownGameState() {
                     for (let x = 0; x < state.gridW; ++x) {
                         if (y != a.ty || x != a.tx) {
                             knownGameState.grid[y][x].removePossibleActor(ActorId.Mimic);
+                            knownGameState.grid[y][x].removePossibleActor(ActorId.MineKing);
                         }
                     }
                 }
