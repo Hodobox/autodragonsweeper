@@ -1749,6 +1749,10 @@ class KnownGameStateGridSquare {
         this.ty = ty;
     }
 
+    removePossibleActor(actorId) {
+        this.possibleActors = this.possibleActors.filter((a) => a.id != actorId);
+    }
+
     knownPower() {
         if (!this.possibleActors.every((actor) => actor.monsterLevel == this.possibleActors[0].monsterLevel)) {
             return null;
@@ -1857,6 +1861,18 @@ class KnownGameState {
     constructor() {
         this.grid = constructInitialGrid();
         this.mimicFound = null;
+        this.loversFound = false;
+    }
+
+    disarmMines() {
+        console.log("Disarming mines");
+        for (let i = 0; i < state.gridH; ++i) {
+            for (let k = 0; k < state.gridW; ++k) {
+                if (knownGameState.grid[i][k].knownActor() == ActorId.Mine) {
+                    knownGameState.grid[i][k].possibleActors = [makeActor(ActorId.Treasure)];
+                }
+            }
+        }
     }
 
     // Assumes chest-like object is revealed at tx,ty
@@ -2007,13 +2023,41 @@ function updateKnownGameState() {
     }
 
     // if we have a chest where only mimic can be, we found him
-    for (let i = 0; i < state.actors.length; i++) {
-        let a = state.actors[i];
+    if (knownGameState.mimicFound == null) {
 
-        if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Mimic) {
-            knownGameState.mimicFound = [a.ty, a.tx];
+        for (let i = 0; i < state.actors.length; i++) {
+            let a = state.actors[i];
+
+            if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Mimic) {
+                console.log(`Found mimic at ${a.ty}, ${a.tx}`);
+                knownGameState.mimicFound = [a.ty, a.tx];
+            }
         }
     }
+
+    // if we found a lover, we found them both
+    if (!knownGameState.loversFound) {
+        for (let a of state.actors) {
+            if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Giant) {
+                console.log(`Found lover at ${a.ty}, ${a.tx}`);
+                const other_x = state.gridW - a.tx - 1;
+                console.log(`So other lover is at ${a.ty}, ${a.tx}`);
+                knownGameState.loversFound = true;
+
+                knownGameState.grid[a.ty][other_x].possibleActors = [makeActor(ActorId.Giant)];
+
+                for (let i = 0; i < state.gridH; i++) {
+                    for (let k = 0; k < state.gridW; k++) {
+                        if (i != a.ty || (k != a.tx && k != other_x)) {
+                            knownGameState.grid[i][k].removePossibleActor(ActorId.Giant);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
 }
 
 // clicks revealed objects which have no downside
@@ -2543,6 +2587,12 @@ function updatePlaying(ctx, dt) {
         let maybeClick = maybeGetNextClick();
         if (maybeClick != null) {
             clickedActorIndex = maybeClick;
+        }
+
+        if (clickedActorIndex >= 0) {
+            if (activeActors[clickedActorIndex].id == ActorId.SpellDisarm) {
+                knownGameState.disarmMines();
+            }
         }
     }
 
@@ -3370,8 +3420,11 @@ function updatePlaying(ctx, dt) {
     // knownGameState hints - show tiles whose power we know
     for (let i = 0; i < state.gridH; i++) {
         for (let k = 0; k < state.gridW; k++) {
+
             if (getActorAt(k, i).revealed) {
-                continue;
+                if (knownGameState.mimicFound == null || knownGameState.mimicFound[0] != i || knownGameState.mimicFound[1] != k || getActorAt(k, i).defeated) {
+                    continue;
+                }
             }
 
             const knownPower = knownGameState.grid[i][k].knownPower();
