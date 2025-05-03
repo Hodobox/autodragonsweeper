@@ -1750,6 +1750,7 @@ class KnownGameStateGridSquare {
         this.tx = tx;
         this.ty = ty;
         this.wallNeighborFound = false;
+        this.neighborMinesPopulated = false;
     }
 
     removePossibleActor(actorId) {
@@ -2118,7 +2119,7 @@ function updateKnownGameState() {
                 knownGameState.grid[a.ty][a.tx].wallNeighborFound = true;
                 continue;
             }
-            let unknown_neighs = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == null);
+            let unknown_neighs = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == null || (!n.revealed && knownGameState.grid[n.ty][n.tx].knownPower() == 0));
 
             if (unknown_neighs.length != 1) {
                 continue;
@@ -2128,6 +2129,28 @@ function updateKnownGameState() {
             knownGameState.grid[a.ty][a.tx].wallNeighborFound = true;
             knownGameState.grid[n.ty][n.tx].wallNeighborFound = true;
             knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Wall)];
+        }
+    }
+
+    // Check, for each clue that shows a hidden mine, if there are exactly the number of spots for the required mines
+    for (let a of state.actors) {
+        if (knownGameState.grid[a.ty][a.tx].neighborMinesPopulated) {
+            continue;
+        }
+        let hintedPower = getVisibleAttackNumber(a);
+        if (hintedPower == null || hintedPower < 100) {
+            continue;
+        }
+
+        const numMines = Math.floor(hintedPower / 100);
+        const possibleMineNeighs = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].worstCasePower() == 100);
+
+        if (possibleMineNeighs.length == numMines) {
+            console.log(`Need ${numMines} for ${a.ty}, ${a.tx} and exactly as many spots!`);
+            knownGameState.grid[a.ty][a.tx].neighborMinesPopulated = true;
+            for (let n of possibleMineNeighs) {
+                knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Mine)];
+            }
         }
     }
 }
