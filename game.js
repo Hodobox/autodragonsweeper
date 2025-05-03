@@ -1879,6 +1879,18 @@ class KnownGameState {
         // at end of update, remove each entity from below list
         // from possible actors, unless it is exactly it
         this.revealedBySpells = [];
+        this.lastUpdatePossibilities = 0;
+        this.lastUpdateWasMeaningful = true;
+    }
+
+    totalPossibilities() {
+        let ret = 0;
+        for (let y = 0; y < state.gridH; ++y) {
+            for (let x = 0; x < state.gridW; ++x) {
+                ret += this.grid[y][x].possibleActors.length;
+            }
+        }
+        return ret;
     }
 
     disarmMines() {
@@ -2232,6 +2244,11 @@ function updateKnownGameState() {
             knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.DragonEgg)];
         }
     }
+
+    const currentUpdatePossibilities = knownGameState.totalPossibilities();
+    knownGameState.lastUpdateWasMeaningful = (currentUpdatePossibilities != knownGameState.lastUpdatePossibilities);
+    // console.log(`Just had a meaningful update: ${knownGameState.lastUpdateWasMeaningful}, ${knownGameState.lastUpdatePossibilities} -> ${currentUpdatePossibilities}`);
+    knownGameState.lastUpdatePossibilities = currentUpdatePossibilities;
 }
 
 // clicks revealed objects which have no downside
@@ -3503,7 +3520,9 @@ function updatePlaying(ctx, dt) {
         screeny = rnd(-1, 1);
     }
 
-    updateKnownGameState();
+    if (clickedActorIndex >= 0 || knownGameState.lastUpdateWasMeaningful) {
+        updateKnownGameState();
+    }
 
     // rendering
     ctx.save();
