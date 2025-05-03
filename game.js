@@ -1919,7 +1919,7 @@ class KnownGameState {
                 }
             }
 
-            if (number - knownNumber < 11) {
+            if ((number % 100) - (knownNumber % 100) < 11) {
                 console.log(`No mimic at ${ty} ${tx} because ${n.ty} ${n.tx} shows ${number} and sees ${knownNumber}`);
                 return false;
             }
@@ -2633,7 +2633,6 @@ function updatePlaying(ctx, dt) {
         }
     }
 
-    console.log(state.status);
     if (clickedLeft && state.status == GameStatus.Playing) {
         let maybeClick = maybeGetNextClick();
         if (maybeClick != null) {
