@@ -2079,6 +2079,32 @@ function updateKnownGameState() {
             knownGameState.grid[twiny][twinx].possibleActors = [makeActor(ActorId.Gargoyle)];
         }
     }
+
+    // Remove possible actors who are too big for some neighboring number
+    for (let a of state.actors) {
+        let number = getVisibleAttackNumber(a);
+        if (number == null) {
+            continue;
+        }
+
+        let knownPower = 0;
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            let nPower = knownGameState.grid[n.ty][n.tx].knownPower();
+            if (nPower != null) {
+                knownPower += nPower;
+            }
+        }
+
+        const missingPower = number - knownPower;
+
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            if (n.revealed || knownGameState.grid[n.ty][n.tx].knownPower() != null) {
+                continue;
+            }
+
+            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel <= missingPower);
+        }
+    }
 }
 
 // clicks revealed objects which have no downside
