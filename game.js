@@ -1852,6 +1852,89 @@ function getAttackNumber(tx, ty)
     return ret;
 }
 
+// class KnownGameState{
+//     constructor()
+//     {
+//         this.RatKingColumn = [0, state.gridW];
+//     }
+// }
+
+function getXpClick() {
+    for(let i=0;i<state.actors.length; i++) {
+        let a = state.actors[i];
+        if(a.revealed && a.id == ActorId.Treasure)
+        {
+            return i;
+        }
+        if(a.revealed && a.isMonster && a.defeated && a.xp > 0)
+        {
+            return i;
+        }
+    }
+    return null;
+}
+
+function getScrollClick() {
+    for(let i=0;i<state.actors.length; i++) {
+        let a = state.actors[i];
+        if(!a.revealed) {
+            continue;
+        }
+        if(a.id == ActorId.SpellMakeOrb || a.id == ActorId.SpellDisarm || a.id == ActorId.SpellRevealRats || a.id == ActorId.SpellRevealSlimes || a.id == ActorId.Orb) {
+            return i;
+        }
+    }
+    return null;
+}
+
+function getFreeEmptySpaceClick()
+{
+    for(let i=0; i<state.actors.length; i++) {
+        let a = state.actors[i];
+        if (!isEmpty(a) || !a.revealed) {
+            continue;
+        }
+
+        if(state.actors.find(b => b.id == ActorId.Gazer && !b.defeated && distance(b.tx, b.ty, a.tx, a.ty) <= 2) != undefined) {
+            continue;
+        }
+        
+        let number = getAttackNumber(a.tx, a.ty);
+        let visibleNumbers = 0;
+        for(let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            if(n.revealed && n.monsterLevel > 0 && !n.mimicMimicking) {
+                visibleNumbers += n.monsterLevel;
+            }
+        }
+
+        if(number != visibleNumbers) {
+            continue;
+        }
+
+        for(let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            if(!n.revealed) {
+                for(let idx = 0; idx < state.actors.length; idx++) {
+                    if(n.tx == state.actors[idx].tx && n.ty == state.actors[idx].ty) {
+                        console.log("" + n.tx + " " + n.ty + " is free");
+                        return idx;
+                    }
+                }
+            }
+        } 
+    }
+
+    return null;
+}
+
+function maybeGetNextClick()
+{
+    let click = null;
+    click = click ?? getXpClick();
+    click = click ?? getScrollClick();
+    click = click ?? getFreeEmptySpaceClick();
+    return click;
+}
+
 function updateBook(ctx, dt, worldR, HUDRect, clickedLeft)
 {
     let bookR = new Rect();
@@ -2368,6 +2451,13 @@ function updatePlaying(ctx, dt)
                 play("open_hover");
             }
         }        
+    }
+
+    if(clickedLeft) {
+        let maybeClick = maybeGetNextClick();
+        if(maybeClick != null) {
+            clickedActorIndex = maybeClick;
+        }
     }
 
     // turn
