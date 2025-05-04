@@ -1728,6 +1728,8 @@ function getAttackNumber(tx, ty) {
 
 // Solver code
 
+const SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX = -47;
+
 function looksLikeClosedChest(actor) {
     return actor.revealed && (actor.id == ActorId.Chest || actor.mimicMimicking);
 }
@@ -2513,10 +2515,19 @@ function getRevealingEmptySpaceClick() {
     return null;
 }
 
-function maybeGetNextClick() {
+// returns SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX if we should level up
+function optimalLevelUpTimeClick() {
+    if (state.player.hp == 1 && state.player.xp >= nextLevelXP(state.player.level)) {
+        console.log(`Optimal time to level up`);
+        return SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX;
+    }
+    return null;
+}
 
+function maybeGetNextClick() {
     let click = null;
     click = click ?? getFreeRevealedClick();
+    click = click ?? optimalLevelUpTimeClick();
     click = click ?? getRevealingEmptySpaceClick();
     return click;
 }
@@ -3494,7 +3505,8 @@ function updatePlaying(ctx, dt) {
     levelupButtonR.x = heroR.x;
 
     let isLevelupButtonEnabled = state.player.hp > 0 && state.player.xp >= nextLevelXP(state.player.level) && state.status == GameStatus.Playing;
-    let mustLevelup = levelupButtonR.contains(mousex, mousey) && clickedLeft && isLevelupButtonEnabled;
+    let tryingToLevelUp = (levelupButtonR.contains(mousex, mousey) || clickedActorIndex == SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX) && clickedLeft;
+    let mustLevelup = isLevelupButtonEnabled && tryingToLevelUp;
 
     if (debugOn) {
         if (keysJustPressed.includes('w')) {
