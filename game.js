@@ -427,6 +427,7 @@ class GameState {
         /** @type {string[]} */
         this.stampsCollectedThisRun = [];
         this.killedRats = 0;
+        this.autoPlayRect = new Rect();
     }
 }
 
@@ -2532,6 +2533,46 @@ function maybeGetNextClick() {
     return click;
 }
 
+function getNextClick() {
+    let click = maybeGetNextClick();
+    if (click != null) {
+        return click;
+    }
+
+    const hp = state.player.hp - 1;
+    let personsOfInterest = [];
+    // persons of interest
+    for (let y = 0; y < state.gridH; ++y) {
+        for (let x = 0; x < state.gridW; ++x) {
+            let knownActor = knownGameState.grid[y][x].knownActor();
+            if (knownActor == ActorId.MineKing || knownActor == ActorId.RatKing || knownActor == ActorId.Wizard) {
+                personsOfInterest.push({ x: x, y: y, id: knownActor });
+            }
+        }
+    }
+
+    const mineKing = personsOfInterest.find((p) => p.id == ActorId.MineKing);
+    if (hp >= 10 && mineKing != undefined) {
+        console.log(`Killing the MineKing`);
+        return getActorIndexAt(mineKing.x, mineKing.y);
+    }
+
+    const ratKing = personsOfInterest.find((p) => p.id == ActorId.RatKing);
+    if (hp >= 5 && ratKing != undefined) {
+        console.log(`Killing the RatKing`);
+        return getActorIndexAt(ratKing.x, ratKing.y);
+    }
+
+    const wizard = personsOfInterest.find((p) => p.id == ActorId.Wizard);
+    if (hp >= 1 && wizard != undefined) {
+        console.log(`Killing the wizard`);
+        return getActorIndexAt(wizard.x, wizard.y);
+    }
+
+    console.log(`Clicking the middle`);
+    return getActorIndexAt(6, 4);
+}
+
 // End of solver code
 
 function updateBook(ctx, dt, worldR, HUDRect, clickedLeft) {
@@ -3014,17 +3055,20 @@ function updatePlaying(ctx, dt) {
         if (maybeClick != null) {
             clickedActorIndex = maybeClick;
         }
+    }
+    else if (clickedLeft && state.autoPlayRect.contains(mousex, mousey) && state.status == GameStatus.Playing) {
+        clickedActorIndex = getNextClick();
+    }
 
-        if (clickedActorIndex >= 0) {
-            if (activeActors[clickedActorIndex].id == ActorId.SpellDisarm) {
-                knownGameState.disarmMines();
-            }
-            else if (activeActors[clickedActorIndex].id == ActorId.SpellRevealSlimes) {
-                knownGameState.revealedBySpells.push(ActorId.Slime);
-            }
-            else if (activeActors[clickedActorIndex].id == ActorId.SpellRevealRats) {
-                knownGameState.revealedBySpells.push(ActorId.Rat);
-            }
+    if (clickedActorIndex >= 0) {
+        if (activeActors[clickedActorIndex].id == ActorId.SpellDisarm) {
+            knownGameState.disarmMines();
+        }
+        else if (activeActors[clickedActorIndex].id == ActorId.SpellRevealSlimes) {
+            knownGameState.revealedBySpells.push(ActorId.Slime);
+        }
+        else if (activeActors[clickedActorIndex].id == ActorId.SpellRevealRats) {
+            knownGameState.revealedBySpells.push(ActorId.Rat);
         }
     }
 
@@ -4006,6 +4050,12 @@ function updatePlaying(ctx, dt) {
         if (state.player.xp > nextLevelXP(state.player.level)) {
             drawFrame(ctx, stripIcons, 56, offx, worldR.h - 12);
         }
+
+        // for solver. Should be where xp bar is.
+        state.autoPlayRect.x = heroR.right() + 10;
+        state.autoPlayRect.y = worldR.h - 14;
+        state.autoPlayRect.h = 24; // stripIcons cellh
+        state.autoPlayRect.w = offx - state.autoPlayRect.x;
     }
 
     { // levelup button
