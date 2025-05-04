@@ -2892,6 +2892,7 @@ function updatePlaying(ctx, dt) {
     // input
     let clickedRight = supportsRightClick() && (mouseJustPressedRight || (mouseJustPressed && shiftIsPressed));
     let clickedLeft = mouseJustPressed && !clickedRight;
+    let clickedOnBoard = false;
 
     if (!mousePressed) {
         state.timeElapsedPushingButton = 0;
@@ -2950,6 +2951,7 @@ function updatePlaying(ctx, dt) {
         for (let i = 0; i < activeActors.length; i++) {
             let a = activeActors[i];
             let r = actorRects[i];
+            clickedOnBoard ||= r.contains(mousex, mousey);
             if ((!a.revealed || !isEmpty(a)) && state.status == GameStatus.Playing && r.contains(mousex, mousey) && !state.showingMonsternomicon) {
                 hoveringActorIndex = i;
                 // if(mousePressed) pressedActorIndex = i;
@@ -2957,6 +2959,8 @@ function updatePlaying(ctx, dt) {
                 if (clickedRight) cycleMarkerActorIndex = i;
             }
         }
+
+        clickedOnBoard &&= !state.showingMonsternomicon && state.status == GameStatus.Playing;
 
         if (state.lastPushedButtonIndex >= 0) {
             let a = activeActors[state.lastPushedButtonIndex];
@@ -2994,7 +2998,7 @@ function updatePlaying(ctx, dt) {
         }
     }
 
-    if (clickedLeft && state.status == GameStatus.Playing) {
+    if (clickedLeft && clickedOnBoard) {
         let maybeClick = maybeGetNextClick();
         if (maybeClick != null) {
             clickedActorIndex = maybeClick;
