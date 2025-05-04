@@ -1753,6 +1753,10 @@ class KnownGameStateGridSquare {
         this.neighborMinesPopulated = false;
     }
 
+    couldBe(actorId) {
+        return this.possibleActors.find((a) => a.id == actorId) != undefined;
+    }
+
     removePossibleActor(actorId) {
         this.possibleActors = this.possibleActors.filter((a) => a.id != actorId);
     }
@@ -1876,6 +1880,7 @@ class KnownGameState {
         this.guardFound = [[false, false], [false, false]];
         this.bigSlimesFound = false;
         this.dragonEggFound = false;
+        this.mineKingFound = false;
         // at end of update, remove each entity from below list
         // from possible actors, unless it is exactly it
         this.revealedBySpells = [];
@@ -2233,7 +2238,7 @@ function updateKnownGameState() {
     }
     knownGameState.revealedBySpells = [];
 
-    //If we haven't found the dragon's egg, and there is only one adjacent square next to the dragon left, that's it.
+    // If we haven't found the dragon's egg, and there is only one adjacent square next to the dragon left, that's it.
     if (!knownGameState.dragonEggFound) {
         let neighs = getNeighborsWithDiagonals(Math.floor(state.gridW / 2), 4);
         let zeros = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == 0 && !n.revealed);
@@ -2243,6 +2248,24 @@ function updateKnownGameState() {
             console.log(`Found the dragon egg at ${n.ty} ${n.tx}`);
             knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.DragonEgg)];
         }
+    }
+
+    // If we haven't found the MineKing, and there is only one square left for him, he's there
+    if (!knownGameState.mineKingFound) {
+        let corners = [knownGameState.grid[0][0], knownGameState.grid[0][state.gridW - 1], knownGameState.grid[state.gridH - 1][0], knownGameState.grid[state.gridH - 1][state.gridW - 1]];
+
+        if (corners.filter((s) => s.knownActor() == ActorId.MineKing).length > 0) {
+            knownGameState.mineKingFound = true;
+        } else {
+            let possible = corners.filter((s) => s.couldBe(ActorId.MineKing));
+            if (possible.length == 1) {
+                let p = possible[0];
+                console.log(`MineKing must be at ${p.ty} ${p.tx}`);
+                knownGameState.grid[p.ty][p.tx].possibleActors = [makeActor(ActorId.MineKing)];
+                knownGameState.mineKingFound = true;
+            }
+        }
+
     }
 
     const currentUpdatePossibilities = knownGameState.totalPossibilities();
