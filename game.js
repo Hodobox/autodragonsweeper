@@ -1881,6 +1881,11 @@ class KnownGameState {
         this.bigSlimesFound = false;
         this.dragonEggFound = false;
         this.mineKingFound = false;
+        this.wizardFound = false;
+        this.bigSlimes = [];
+        // How many tiles we can have a wizard in.
+        // Used as optimization to not clear over and over.
+        this.wizardClearedExcept = 1000;
         // at end of update, remove each entity from below list
         // from possible actors, unless it is exactly it
         this.revealedBySpells = [];
@@ -1954,6 +1959,121 @@ class KnownGameState {
         }
 
         return true;
+    }
+
+    clearWizard(except) {
+        if (this.wizardClearedExcept <= except.length) {
+            return;
+        }
+        this.wizardClearedExcept = except.length;
+        console.log(`Clearing out wizard possibility from the grid except ${except}`);
+        for (let y = 0; y < state.gridH; ++y) {
+            for (let x = 0; x < state.gridW; ++x) {
+                if (except.find((e) => e[0] == y && e[1] == x) == undefined) {
+                    this.grid[y][x].removePossibleActor(ActorId.Wizard);
+                }
+            }
+        }
+    }
+
+    foundWizard(tx, ty) {
+        console.log(`Found wizard at ${ty}, ${tx}`);
+        this.wizardFound = true;
+        this.grid[ty][tx].possibleActors = [makeActor(ActorId.Wizard)];
+        this.clearWizard([[ty, tx]]);
+        for (let n of getNeighborsWithDiagonals(tx, ty)) {
+            if (!n.revealed && this.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
+                console.log(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
+                this.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
+                this.bigSlimes.push([n.ty, n.tx]);
+            }
+        }
+    }
+
+    // Try to identify the wizard using bigSlimes
+    // Honestly, it's a bit jank, and leaves a lot of room for improvement. But in most games, this should do ok.
+    huntForWizard() {
+        let edgeSlimes = this.bigSlimes.filter((s) => isEdge(s[1], s[0]));
+        let adjSlimes = this.bigSlimes.filter((s) => isCloseToEdge(s[1], s[0]));
+
+        if (edgeSlimes.length == 2) {
+            // wizard must be in the middle
+            const ty = Math.floor((edgeSlimes[0][0] + edgeSlimes[1][0]) / 2);
+            const tx = Math.floor((edgeSlimes[0][1] + edgeSlimes[1][1]) / 2);
+            console.log(`Two edge slimes ${edgeSlimes} pinpoint the wizard`);
+            this.foundWizard(tx, ty);
+            return;
+        }
+
+        if (edgeSlimes.length == 1) {
+            const sy = edgeSlimes[0][0];
+            const sx = edgeSlimes[0][1];
+
+            let plausibleTwinSquares = state.actors.filter((a) => isEdge(a.tx, a.ty) && Math.abs(a.tx - sx) + Math.abs(a.ty - sy) == 2);
+            let possibleTwins = plausibleTwinSquares.filter((a) => knownGameState.grid[a.ty][a.tx].couldBe(ActorId.BigSlime));
+
+            if (possibleTwins.length == 1) {
+                // wizard must be between the two slimes
+                const twinx = possibleTwins[0].tx;
+                const twiny = possibleTwins[0].ty;
+                const tx = Math.floor((sx + twinx) / 2);
+                const ty = Math.floor((sy + twiny) / 2);
+                console.log(`Edge slime at ${sy} ${sx} has only one candidate twin ${twiny} ${twinx}`);
+                this.foundWizard(tx, ty);
+                return;
+            }
+
+            let plausibleWizards = getNeighborsCross(sx, sy).filter((a) => isEdge(a.tx, a.ty));
+            let possibleWizards = plausibleWizards.filter((a) => knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Wizard));
+            if (possibleWizards.length == 1) {
+                // only 1 place for the wizard
+                const ty = possibleWizards[0].ty;
+                const tx = possibleWizards[0].tx;
+                console.log(`Edge slime at ${sy} ${sx} has only one possible wizard ${ty} ${tx}`);
+                this.foundWizard(tx, ty);
+                return;
+            }
+            else {
+                let wizardCoords = possibleWizards.map((a) => [a.ty, a.tx]);
+                console.log(`Edge slime ${sy} ${sx} limits wizard to ${wizardCoords}`);
+                this.clearWizard(wizardCoords);
+            }
+        }
+
+        if (adjSlimes.length == 3) {
+            // wizard must be next to the middle one
+            const middleX = Math.floor(adjSlimes[0][1] + adjSlimes[1][1] + adjSlimes[2][1]) / 3;
+            const middleY = Math.floor(adjSlimes[0][0] + adjSlimes[1][0] + adjSlimes[2][0]) / 3;
+            const wizard = getNeighborsCross(middleX, middleY).find((a) => isEdge(a.tx, a.ty));
+            console.log(`Non-edge slimes ${adjSlimes} have middle slime ${middleY} ${middleX}`);
+            console.log(`This pinpoints wizard ${wizard.ty} ${wizard.tx}`);
+            this.foundWizard(wizard.tx, wizard.ty);
+            return;
+        }
+
+        if (adjSlimes.length == 2) {
+            const ax = adjSlimes[0][1];
+            const ay = adjSlimes[0][0];
+            const bx = adjSlimes[1][1];
+            const by = adjSlimes[1][0];
+
+            // not neighboring slimes pinpoint middle slime -> wizard
+            if (distance(ax, ay, bx, by) > 1.01) {
+                const middleX = Math.floor(ax + bx) / 2;
+                const middleY = Math.floor(ay + by) / 2;
+                const wizard = getNeighborsCross(middleX, middleY).find((a) => isEdge(a.tx, a.ty));
+                console.log(`Non-edge non-neighboring slimes ${adjSlimes} have middle slime ${middleY} ${middleX}`);
+                console.log(`This pinpoints wizard ${wizard.ty} ${wizard.tx}`);
+                this.foundWizard(wizard.tx, wizard.ty);
+                return;
+            }
+
+            // wizard must be under one of them
+            let wizard1 = getNeighborsCross(ax, ay).filter((a) => isEdge(a.tx, a.ty)).map((a) => [a.ty, a.tx]);
+            let wizard2 = getNeighborsCross(bx, by).filter((a) => isEdge(a.tx, a.ty)).map((a) => [a.ty, a.tx]);
+            this.clearWizard(wizard1.concat(wizard2));
+        }
+
     }
 }
 
@@ -2265,7 +2385,36 @@ function updateKnownGameState() {
                 knownGameState.mineKingFound = true;
             }
         }
+    }
 
+    // Hunt for the wizard
+    if (!knownGameState.wizardFound) {
+        let possible = state.actors.filter((a) => isEdge(a.tx, a.ty) || isCloseToEdge(a.tx, a.ty));
+        let maybeWizard = possible.find((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Wizard);
+        if (maybeWizard != undefined) {
+            knownGameState.wizardFound = true;
+            for (let n of getNeighborsWithDiagonals(maybeWizard.tx, maybeWizard.ty)) {
+                if (!n.revealed && knownGameState.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
+                    console.log(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
+                    knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
+                    knownGameState.bigSlimes.push([n.ty, n.tx]);
+                }
+            }
+        }
+        else {
+
+            let slimes = possible.filter((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.BigSlime);
+            for (slime of slimes) {
+                if (knownGameState.bigSlimes.find((b) => b[0] == slime.ty && b[1] == slime.tx) == undefined) {
+                    knownGameState.bigSlimes.push([slime.ty, slime.tx]);
+                }
+            }
+
+            if (knownGameState.bigSlimes.length) {
+                knownGameState.huntForWizard();
+            }
+
+        }
     }
 
     const currentUpdatePossibilities = knownGameState.totalPossibilities();
@@ -2291,7 +2440,7 @@ function getFreeRevealedClick() {
             continue;
         }
 
-        if (g.isXp() || g.knownActor() == ActorId.Treasure || g.knownActor() == ActorId.Gnome || g.isSpell()) {
+        if (g.isXp() || g.knownActor() == ActorId.Treasure || g.knownActor() == ActorId.Gnome || g.knownActor() == ActorId.DragonEgg || g.isSpell()) {
             console.log(`Clicking ${a.ty} ${a.tx} because it is revealed and xp/treasure/gnome/spell`);
             return i;
         }
