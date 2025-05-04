@@ -1771,8 +1771,16 @@ class KnownGameStateGridSquare {
         return this.possibleActors[0].monsterLevel;
     }
 
+    bestCasePower() {
+        return Math.min(...this.possibleActors.map((a) => a.monsterLevel));
+    }
+
     worstCasePower() {
         return Math.max(...this.possibleActors.map((a) => a.monsterLevel));
+    }
+
+    worstCaseNonminePower() {
+        return Math.max(...this.possibleActors.map((a) => a.monsterLevel % 100));
     }
 
     knownActor() {
@@ -1992,89 +2000,87 @@ class KnownGameState {
 
     // Try to identify the wizard using bigSlimes
     // Honestly, it's a bit jank, and leaves a lot of room for improvement. But in most games, this should do ok.
+    // Struggles more when the formation is in a corner.
     huntForWizard() {
-        let edgeSlimes = this.bigSlimes.filter((s) => isEdge(s[1], s[0]));
-        let adjSlimes = this.bigSlimes.filter((s) => isCloseToEdge(s[1], s[0]));
 
-        if (edgeSlimes.length == 2) {
-            // wizard must be in the middle
-            const ty = Math.floor((edgeSlimes[0][0] + edgeSlimes[1][0]) / 2);
-            const tx = Math.floor((edgeSlimes[0][1] + edgeSlimes[1][1]) / 2);
-            console.log(`Two edge slimes ${edgeSlimes} pinpoint the wizard`);
+        // wizard needs to be neighbor of all slimes
+        let intersectionWizards = undefined;
+        for (let s of this.bigSlimes) {
+            const sx = s[1];
+            const sy = s[0];
+
+            if (intersectionWizards == undefined) {
+                intersectionWizards = getNeighborsWithDiagonals(sx, sy);
+            }
+            else {
+                intersectionWizards = intersectionWizards.filter((w) => distance(w.tx, w.ty, sx, sy) > 0 && distance(w.tx, w.ty, sx, sy) < 2);
+            }
+        }
+
+        intersectionWizards = intersectionWizards.filter((w) => isEdge(w.tx, w.ty) && knownGameState.grid[w.ty][w.tx].couldBe(ActorId.Wizard));
+
+        if (intersectionWizards.length == 0) {
+            console.log(`ERROR: apparently there is no cross-section of slime neighbors that can be wizard.`);
+        }
+        else if (intersectionWizards.length == 1) {
+            const ty = intersectionWizards[0].ty;
+            const tx = intersectionWizards[0].tx;
+            console.log(`Intersection of all slime neighbors yields only one possible wizard ${ty} ${tx}`);
             this.foundWizard(tx, ty);
             return;
         }
+        else {
+            this.clearWizard(intersectionWizards.map((a) => [a.ty, a.tx]));
+        }
+
+        let edgeSlimes = this.bigSlimes.filter((s) => isEdge(s[1], s[0]));
+        let adjSlimes = this.bigSlimes.filter((s) => isCloseToEdge(s[1], s[0]) && !isEdge(s[1], s[0]));
+
+        // two edge slimes - covered by intersection check
 
         if (edgeSlimes.length == 1) {
             const sy = edgeSlimes[0][0];
             const sx = edgeSlimes[0][1];
 
-            let plausibleTwinSquares = state.actors.filter((a) => isEdge(a.tx, a.ty) && Math.abs(a.tx - sx) + Math.abs(a.ty - sy) == 2);
-            let possibleTwins = plausibleTwinSquares.filter((a) => knownGameState.grid[a.ty][a.tx].couldBe(ActorId.BigSlime));
+            // problem when wizard is in corner and this could be an adj-slime.
+            if (sx != 1 && sx != state.gridW - 2 && sy != 1 && sy != state.gridH - 2) {
 
-            if (possibleTwins.length == 1) {
-                // wizard must be between the two slimes
-                const twinx = possibleTwins[0].tx;
-                const twiny = possibleTwins[0].ty;
-                const tx = Math.floor((sx + twinx) / 2);
-                const ty = Math.floor((sy + twiny) / 2);
-                console.log(`Edge slime at ${sy} ${sx} has only one candidate twin ${twiny} ${twinx}`);
-                this.foundWizard(tx, ty);
-                return;
-            }
+                let plausibleTwinSquares = state.actors.filter((a) => isEdge(a.tx, a.ty) && Math.abs(a.tx - sx) + Math.abs(a.ty - sy) == 2);
+                let possibleTwins = plausibleTwinSquares.filter((a) => knownGameState.grid[a.ty][a.tx].couldBe(ActorId.BigSlime));
 
-            let plausibleWizards = getNeighborsCross(sx, sy).filter((a) => isEdge(a.tx, a.ty));
-            let possibleWizards = plausibleWizards.filter((a) => knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Wizard));
-            if (possibleWizards.length == 1) {
-                // only 1 place for the wizard
-                const ty = possibleWizards[0].ty;
-                const tx = possibleWizards[0].tx;
-                console.log(`Edge slime at ${sy} ${sx} has only one possible wizard ${ty} ${tx}`);
-                this.foundWizard(tx, ty);
-                return;
-            }
-            else {
-                let wizardCoords = possibleWizards.map((a) => [a.ty, a.tx]);
-                console.log(`Edge slime ${sy} ${sx} limits wizard to ${wizardCoords}`);
-                this.clearWizard(wizardCoords);
+                if (possibleTwins.length == 1) {
+                    // wizard must be between the two slimes
+                    const twinx = possibleTwins[0].tx;
+                    const twiny = possibleTwins[0].ty;
+                    const tx = Math.floor((sx + twinx) / 2);
+                    const ty = Math.floor((sy + twiny) / 2);
+                    console.log(`Edge slime at ${sy} ${sx} has only one candidate twin ${twiny} ${twinx}`);
+                    this.foundWizard(tx, ty);
+                    return;
+                }
+
+                let plausibleWizards = getNeighborsWithDiagonals(sx, sy).filter((a) => isEdge(a.tx, a.ty));
+                let possibleWizards = plausibleWizards.filter((a) => knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Wizard));
+                if (possibleWizards.length == 1) {
+                    // only 1 place for the wizard
+                    const ty = possibleWizards[0].ty;
+                    const tx = possibleWizards[0].tx;
+                    console.log(`Edge slime at ${sy} ${sx} has only one possible wizard ${ty} ${tx}`);
+                    this.foundWizard(tx, ty);
+                    return;
+                }
+                else {
+                    let wizardCoords = possibleWizards.map((a) => [a.ty, a.tx]);
+                    this.clearWizard(wizardCoords);
+                }
             }
         }
 
-        if (adjSlimes.length == 3) {
-            // wizard must be next to the middle one
-            const middleX = Math.floor(adjSlimes[0][1] + adjSlimes[1][1] + adjSlimes[2][1]) / 3;
-            const middleY = Math.floor(adjSlimes[0][0] + adjSlimes[1][0] + adjSlimes[2][0]) / 3;
-            const wizard = getNeighborsCross(middleX, middleY).find((a) => isEdge(a.tx, a.ty));
-            console.log(`Non-edge slimes ${adjSlimes} have middle slime ${middleY} ${middleX}`);
-            console.log(`This pinpoints wizard ${wizard.ty} ${wizard.tx}`);
-            this.foundWizard(wizard.tx, wizard.ty);
-            return;
-        }
+        // three adj slimes - covered by intersection check
 
-        if (adjSlimes.length == 2) {
-            const ax = adjSlimes[0][1];
-            const ay = adjSlimes[0][0];
-            const bx = adjSlimes[1][1];
-            const by = adjSlimes[1][0];
-
-            // not neighboring slimes pinpoint middle slime -> wizard
-            if (distance(ax, ay, bx, by) > 1.01) {
-                const middleX = Math.floor(ax + bx) / 2;
-                const middleY = Math.floor(ay + by) / 2;
-                const wizard = getNeighborsCross(middleX, middleY).find((a) => isEdge(a.tx, a.ty));
-                console.log(`Non-edge non-neighboring slimes ${adjSlimes} have middle slime ${middleY} ${middleX}`);
-                console.log(`This pinpoints wizard ${wizard.ty} ${wizard.tx}`);
-                this.foundWizard(wizard.tx, wizard.ty);
-                return;
-            }
-
-            // wizard must be under one of them
-            let wizard1 = getNeighborsCross(ax, ay).filter((a) => isEdge(a.tx, a.ty)).map((a) => [a.ty, a.tx]);
-            let wizard2 = getNeighborsCross(bx, by).filter((a) => isEdge(a.tx, a.ty)).map((a) => [a.ty, a.tx]);
-            this.clearWizard(wizard1.concat(wizard2));
-        }
-
+        // two adj slimes that are not neighbors - covered by intersection check
     }
+
 }
 
 function updateKnownGameState() {
@@ -2259,6 +2265,48 @@ function updateKnownGameState() {
             }
 
             knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel <= missingPower);
+        }
+    }
+
+    // Remove possible actors who are too small for some neighboring number
+    for (let a of state.actors) {
+        let number = getVisibleAttackNumber(a);
+        if (number == null) {
+            continue;
+        }
+
+        let knownPower = 0;
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            let nPower = knownGameState.grid[n.ty][n.tx].knownPower();
+            if (nPower != null) {
+                knownPower += nPower;
+            }
+        }
+
+        const missingCreaturePower = (number - knownPower) % 100;
+        let atMostCreaturePower = 0;
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            if (knownGameState.grid[n.ty][n.tx].knownPower() == null) {
+                atMostCreaturePower += knownGameState.grid[n.ty][n.tx].worstCaseNonminePower();
+            }
+        }
+
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            if (n.revealed || knownGameState.grid[n.ty][n.tx].knownPower() != null) {
+                continue;
+            }
+
+            let atMostCreaturePowerWithoutMe = atMostCreaturePower - knownGameState.grid[n.ty][n.tx].worstCaseNonminePower();
+            let needAtLeastThisCreaturePower = missingCreaturePower - atMostCreaturePowerWithoutMe;
+
+            // for (let act of knownGameState.grid[n.ty][n.tx].possibleActors) {
+            //     if (act.monsterLevel < needAtLeastThisCreaturePower) {
+            //         console.log(`Kicking out ${act.id} out of ${n.ty}, ${n.tx} because it needs to be at least ${needAtLeastThisCreaturePower}: missing ${missingCreaturePower}, can do at most ${atMostCreaturePower}, without me at most ${atMostCreaturePowerWithoutMe}`);
+            //     }
+            // }
+            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel >= needAtLeastThisCreaturePower);
+
+
         }
     }
 
@@ -3810,11 +3858,18 @@ function updatePlaying(ctx, dt) {
                 continue;
             }
 
-            // show worst-case scenario if its not a mine
+            // show worst-case scenario if its not a mine (and best case, if >0)
             const worstCasePower = knownGameState.grid[i][k].worstCasePower();
             if (worstCasePower != 100) {
+                const bestCasePower = knownGameState.grid[i][k].bestCasePower();
                 const r = getRectForTile(k, i);
-                fontUIRed.drawLine(ctx, "" + worstCasePower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
+                if (bestCasePower == 0) {
+                    fontUIRed.drawLine(ctx, "" + worstCasePower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
+                }
+                else {
+                    fontUIRed.drawLine(ctx, "" + bestCasePower + ":" + worstCasePower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
+                    //fontUIRed.drawLine(ctx, "" + bestCasePower, r.centerx() - 6, r.centery() + 5, FONT_CENTER | FONT_VCENTER);
+                }
             }
         }
     }
