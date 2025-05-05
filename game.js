@@ -2570,6 +2570,31 @@ function canKillEnemyAndSpendAllHealth(enemies, hp) {
     return dp.map((row) => row[hp]);
 }
 
+function revealingPower(e) {
+
+    let power = 0;
+    for (let n of getNeighborsWithDiagonals(e.tx, e.ty)) {
+        if (knownGameState.grid[n.ty][n.tx].knownPower() != undefined) {
+            continue;
+        }
+
+        let cluesSoFar = getNeighborsWithDiagonals(n.tx, n.ty).filter((nn) => knownGameState.grid[nn.ty][nn.tx].knownPower() != undefined).length;
+
+        power += cluesSoFar;
+    }
+    return power;
+}
+
+function tryKillingAbeforeB(a, b) {
+    if (a.revealPower != b.revealPower) {
+        // higher revealing power first
+        return b.revealPower - a.revealPower;
+    }
+
+    // lower power first
+    return a.power - b.power;
+}
+
 function maybeGetNextClick() {
     let click = maybeGetFreeClick();
     if (click != null) {
@@ -2583,7 +2608,7 @@ function maybeGetNextClick() {
     for (let y = 0; y < state.gridH; ++y) {
         for (let x = 0; x < state.gridW; ++x) {
             let knownActor = knownGameState.grid[y][x].knownActor();
-            if (knownActor == ActorId.MineKing || knownActor == ActorId.RatKing || knownActor == ActorId.Wizard) {
+            if (knownActor == ActorId.MineKing || knownActor == ActorId.RatKing || knownActor == ActorId.Wizard || knownActor == ActorId.Gazer) {
                 VIPs.push({ x: x, y: y, id: knownActor });
             }
         }
@@ -2607,16 +2632,40 @@ function maybeGetNextClick() {
         return getActorIndexAt(wizard.x, wizard.y);
     }
 
+    const gazer = VIPs.find((p) => p.id == ActorId.Gazer);
+    if (hp >= 5 && gazer != undefined) {
+        console.log(`Killing a gazer`);
+        return getActorIndexAt(gazer.x, gazer.y);
+    }
+
     // Knapsack - try to click the most powerful enemy that allows us to spend all our hp
     let knownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined && knownGameState.grid[a.ty][a.tx].knownPower() > 0);
-    knownEnemies = knownEnemies.map((e) => ({ x: e.tx, y: e.ty, power: knownGameState.grid[e.ty][e.tx].knownPower() }));
-    knownEnemies.sort((a, b) => b.power - a.power);
+    knownEnemies = knownEnemies.map((e) => ({ x: e.tx, y: e.ty, power: knownGameState.grid[e.ty][e.tx].knownPower(), revealPower: revealingPower(e) }));
+    knownEnemies.sort(tryKillingAbeforeB);
 
     let canKill = canKillEnemyAndSpendAllHealth(knownEnemies, hp);
     for (let i = 0; i < canKill.length; i++) {
         if (canKill[i]) {
-            console.log(`Can kill enemy at ${knownEnemies[i].y} ${knownEnemies[i].x} with power ${knownEnemies[i].power} and spend all health eventually`);
+            console.log(`Can kill enemy at ${knownEnemies[i].y} ${knownEnemies[i].x} with power ${knownEnemies[i].power} (reveal ${knownEnemies[i].revealPower}) and spend all health eventually`);
             return getActorIndexAt(knownEnemies[i].x, knownEnemies[i].y);
+        }
+    }
+
+    // Try to hit an unrevealed square with the lowest worst case power
+    let unknownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
+    unknownEnemies = unknownEnemies.map(e => ({ x: e.tx, y: e.ty, power: knownGameState.grid[e.ty][e.tx].worstCasePower() }));
+    unknownEnemies.sort((a, b) => a.power - b.power);
+    if (unknownEnemies.length > 0 && unknownEnemies[0].power <= hp) {
+        let hit = unknownEnemies[0];
+        console.log(`Can hit unknown square at ${hit.y} ${hit.x} with at most ${hit.power} power to try and reveal more of the board`);
+        return getActorIndexAt(hit.x, hit.y);
+    }
+
+    // Try to hit the most interesting enemy we can
+    for (let e of knownEnemies) {
+        if (e.power <= hp) {
+            console.log(`Hitting the most interesting enemy I can at ${e.y} ${e.x}`);
+            return getActorIndexAt(e.x, e.y);
         }
     }
 
