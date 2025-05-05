@@ -2638,6 +2638,11 @@ function maybeGetNextClick() {
         return getActorIndexAt(gazer.x, gazer.y);
     }
 
+    if (hp >= 13 && knownGameState.grid[4][Math.floor(state.gridW / 2)].knownActor() == ActorId.Dragon) {
+        console.log(`Slaying the dragon`);
+        return getActorIndexAt(Math.floor(state.gridW / 2), 4);
+    }
+
     // Knapsack - try to click the most powerful enemy that allows us to spend all our hp
     let knownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined && knownGameState.grid[a.ty][a.tx].knownPower() > 0);
     knownEnemies = knownEnemies.map((e) => ({ x: e.tx, y: e.ty, power: knownGameState.grid[e.ty][e.tx].knownPower(), revealPower: revealingPower(e) }));
@@ -2667,6 +2672,36 @@ function maybeGetNextClick() {
             console.log(`Hitting the most interesting enemy I can at ${e.y} ${e.x}`);
             return getActorIndexAt(e.x, e.y);
         }
+    }
+
+    // We can't hit anything. Dump damage into lowest HP wall.
+    let walls = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Wall);
+    // Walls are always revealed, so we can see their HP
+    walls.sort((a, b) => a.wallHP - b.wallHP);
+    if (walls.length > 0 && hp > 0) {
+        console.log(`Dumping HP into a wall`);
+        return getActorIndexAt(walls[0].tx, walls[0].ty);
+    }
+
+    // Level up
+    if (state.player.xp >= nextLevelXP(state.player.level)) {
+        console.log(`Reluctantly leveling up`);
+        return SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX;
+    }
+
+    // Use a heal
+    let heals = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Medikit);
+    heals.sort((a, b) => revealingPower(b) - revealingPower(a));
+    if (heals.length > 0) {
+        console.log(`Must take a heal`);
+        return getActorIndexAt(heals[0].tx, heals[0].ty);
+    }
+
+    // Take the crown
+    let crown = state.actors.find((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Crown);
+    if (crown != undefined) {
+        console.log(`Nothing to do except win`);
+        return getActorIndexAt(crown.tx, crown.ty);
     }
 
     // Give up
