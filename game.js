@@ -2533,6 +2533,43 @@ function maybeGetFreeClick() {
     return click;
 }
 
+function knapsackFight(enemies, dp, i, hp) {
+    if (i == enemies.length) {
+        return hp == 0;
+    }
+
+    if (hp < 0) {
+        return false;
+    }
+
+    if (dp[i][hp] != -1) {
+        return dp[i][hp];
+    }
+
+    dp[i][hp] = false;
+    for (let k = i + 1; k <= enemies.length && !dp[i][hp]; ++k) {
+        dp[i][hp] ||= knapsackFight(enemies, dp, k, hp - enemies[i].power);
+    }
+    return dp[i][hp];
+}
+
+function canKillEnemyAndSpendAllHealth(enemies, hp) {
+    const N = enemies.length;
+    let dp = [];
+    for (let i = 0; i < N; ++i) {
+        dp[i] = [];
+        for (let h = 0; h <= hp; ++h) {
+            dp[i][h] = -1;
+        }
+    }
+
+    for (let i = 0; i < N; ++i) {
+        knapsackFight(enemies, dp, i, hp);
+    }
+
+    return dp.map((row) => row[hp]);
+}
+
 function maybeGetNextClick() {
     let click = maybeGetFreeClick();
     if (click != null) {
@@ -2540,35 +2577,50 @@ function maybeGetNextClick() {
     }
 
     const hp = state.player.hp - 1;
-    let personsOfInterest = [];
-    // persons of interest
+
+    // VIPs
+    let VIPs = [];
     for (let y = 0; y < state.gridH; ++y) {
         for (let x = 0; x < state.gridW; ++x) {
             let knownActor = knownGameState.grid[y][x].knownActor();
             if (knownActor == ActorId.MineKing || knownActor == ActorId.RatKing || knownActor == ActorId.Wizard) {
-                personsOfInterest.push({ x: x, y: y, id: knownActor });
+                VIPs.push({ x: x, y: y, id: knownActor });
             }
         }
     }
 
-    const mineKing = personsOfInterest.find((p) => p.id == ActorId.MineKing);
+    const mineKing = VIPs.find((p) => p.id == ActorId.MineKing);
     if (hp >= 10 && mineKing != undefined) {
         console.log(`Killing the MineKing`);
         return getActorIndexAt(mineKing.x, mineKing.y);
     }
 
-    const ratKing = personsOfInterest.find((p) => p.id == ActorId.RatKing);
+    const ratKing = VIPs.find((p) => p.id == ActorId.RatKing);
     if (hp >= 5 && ratKing != undefined) {
         console.log(`Killing the RatKing`);
         return getActorIndexAt(ratKing.x, ratKing.y);
     }
 
-    const wizard = personsOfInterest.find((p) => p.id == ActorId.Wizard);
+    const wizard = VIPs.find((p) => p.id == ActorId.Wizard);
     if (hp >= 1 && wizard != undefined) {
         console.log(`Killing the wizard`);
         return getActorIndexAt(wizard.x, wizard.y);
     }
 
+    // Knapsack - try to click the most powerful enemy that allows us to spend all our hp
+    let knownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined && knownGameState.grid[a.ty][a.tx].knownPower() > 0);
+    knownEnemies = knownEnemies.map((e) => ({ x: e.tx, y: e.ty, power: knownGameState.grid[e.ty][e.tx].knownPower() }));
+    knownEnemies.sort((a, b) => b.power - a.power);
+
+    let canKill = canKillEnemyAndSpendAllHealth(knownEnemies, hp);
+    for (let i = 0; i < canKill.length; i++) {
+        if (canKill[i]) {
+            console.log(`Can kill enemy at ${knownEnemies[i].y} ${knownEnemies[i].x} with power ${knownEnemies[i].power} and spend all health eventually`);
+            return getActorIndexAt(knownEnemies[i].x, knownEnemies[i].y);
+        }
+    }
+
+    // Give up
     console.log(`Unable to find any safe click`);
     play("wrong");
     return null;
