@@ -2525,7 +2525,7 @@ function optimalLevelUpTimeClick() {
     return null;
 }
 
-function maybeGetNextClick() {
+function maybeGetFreeClick() {
     let click = null;
     click = click ?? getFreeRevealedClick();
     click = click ?? optimalLevelUpTimeClick();
@@ -2533,8 +2533,8 @@ function maybeGetNextClick() {
     return click;
 }
 
-function getNextClick() {
-    let click = maybeGetNextClick();
+function maybeGetNextClick() {
+    let click = maybeGetFreeClick();
     if (click != null) {
         return click;
     }
@@ -2569,8 +2569,9 @@ function getNextClick() {
         return getActorIndexAt(wizard.x, wizard.y);
     }
 
-    console.log(`Clicking the middle`);
-    return getActorIndexAt(6, 4);
+    console.log(`Unable to find any safe click`);
+    play("wrong");
+    return null;
 }
 
 // End of solver code
@@ -3051,13 +3052,16 @@ function updatePlaying(ctx, dt) {
     }
 
     if (clickedLeft && clickedOnBoard) {
-        let maybeClick = maybeGetNextClick();
+        let maybeClick = maybeGetFreeClick();
         if (maybeClick != null) {
             clickedActorIndex = maybeClick;
         }
     }
     else if (clickedLeft && state.autoPlayRect.contains(mousex, mousey) && state.status == GameStatus.Playing) {
-        clickedActorIndex = getNextClick();
+        let maybeClick = maybeGetNextClick();
+        if (maybeClick != null) {
+            clickedActorIndex = maybeClick;
+        }
     }
 
     if (clickedActorIndex >= 0) {
