@@ -1900,6 +1900,7 @@ class KnownGameState {
         this.bigSlimesFound = false;
         this.dragonEggFound = false;
         this.mineKingFound = false;
+        this.ratKingFound = false;
         this.wizardFound = false;
         this.bigSlimes = [];
         // How many tiles we can have a wizard in.
@@ -1908,6 +1909,7 @@ class KnownGameState {
         // at end of update, remove each entity from below list
         // from possible actors, unless it is exactly it
         this.revealedBySpells = [];
+        this.turn5IntoRatKing = false;
         this.lastUpdatePossibilities = 0;
         this.lastUpdateWasMeaningful = true;
     }
@@ -2130,6 +2132,10 @@ function updateKnownGameState() {
 
         if (a.id == ActorId.DragonEgg) {
             knownGameState.dragonEggFound = true;
+        }
+
+        if (a.id == ActorId.ratKing) {
+            knownGameState.ratKingFound = true;
         }
 
         if (a.id != ActorId.Chest && a.id != ActorId.Mimic) {
@@ -2439,8 +2445,23 @@ function updateKnownGameState() {
                 }
             }
         }
+
+        if (revealed == ActorId.Slime && !knownGameState.ratKingFound) {
+            knownGameState.turn5IntoRatKing = true;
+        }
     }
     knownGameState.revealedBySpells = [];
+
+    // if we revealed slimes, and have not found rat king yet, try to spot him
+    if (!knownGameState.ratKingFound && knownGameState.turn5IntoRatKing) {
+        let candidate = state.actors.find((a) => !a.revealed && knownGameState.grid[a.ty][a.tx].knownPower() == 5);
+        if (candidate != undefined) {
+            console.log(`Slimes have been cleared and we found a 5, it's the rat king: ${candidate.ty} ${candidate.tx}`);
+            knownGameState.grid[candidate.ty][candidate.tx].possibleActors = [makeActor(ActorId.RatKing)];
+            knownGameState.ratKingFound = true;
+            knownGameState.turn5IntoRatKing = false;
+        }
+    }
 
     // If we haven't found the dragon's egg, and there is only one adjacent square next to the dragon left, that's it.
     if (!knownGameState.dragonEggFound) {
