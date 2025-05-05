@@ -1731,6 +1731,14 @@ function getAttackNumber(tx, ty) {
 
 const SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX = -47;
 
+function isHiddenByGazer(actor) {
+    return (state.actors.find(b => b.id == ActorId.Gazer && !b.defeated && distance(b.tx, b.ty, actor.tx, actor.ty) <= 2) != undefined);
+}
+
+function showsGazerQuestionmark(actor) {
+    return actor.revealed && isEmpty(actor) && isHiddenByGazer(actor);
+}
+
 function looksLikeClosedChest(actor) {
     return actor.revealed && (actor.id == ActorId.Chest || actor.mimicMimicking);
 }
@@ -1740,7 +1748,7 @@ function getVisibleAttackNumber(actor) {
         return null;
     }
 
-    if (state.actors.find(b => b.id == ActorId.Gazer && !b.defeated && distance(b.tx, b.ty, actor.tx, actor.ty) <= 2) != undefined) {
+    if (isHiddenByGazer(actor)) {
         return null;
     }
 
@@ -2082,6 +2090,31 @@ class KnownGameState {
         // three adj slimes - covered by intersection check
 
         // two adj slimes that are not neighbors - covered by intersection check
+    }
+
+    // Tries to guess where the gazer is
+    guessGazer() {
+        let possibleGazers = state.actors.filter((a) => !a.revealed);
+        let mostQuestionMarks = 0;
+        let bestGazer = null;
+
+        for (let g of possibleGazers) {
+            if (state.actors.find((a) => distance(a.tx, a.ty, g.tx, g.ty) <= 2 && getVisibleAttackNumber(a) != null) != undefined) {
+                continue;
+            }
+            const questionMarks = state.actors.filter((a) => distance(a.tx, a.ty, g.tx, g.ty) <= 2 && showsGazerQuestionmark(a)).length;
+            if (questionMarks > mostQuestionMarks) {
+                mostQuestionMarks = questionMarks;
+                bestGazer = g;
+            }
+        }
+
+        if (mostQuestionMarks < 4) {
+            return null;
+        }
+
+        console.log(`Guessing gazer at ${bestGazer.ty}, ${bestGazer.tx} because it matches ${mostQuestionMarks} question marks`);
+        return getActorIndexAt(bestGazer.tx, bestGazer.ty);
     }
 
 }
@@ -2591,8 +2624,12 @@ function tryKillingAbeforeB(a, b) {
         return b.revealPower - a.revealPower;
     }
 
-    // lower power first
-    return a.power - b.power;
+    // lower power first, unless dragon is defeated (then switch to clearing mode)
+    if (knownGameState.grid[4][Math.floor(state.gridW / 2)].knownActor() == ActorId.Dragon) {
+        return a.power - b.power;
+    }
+
+    return b.power - a.power;
 }
 
 function maybeGetNextClick() {
@@ -2642,6 +2679,16 @@ function maybeGetNextClick() {
         console.log(`Slaying the dragon`);
         return getActorIndexAt(Math.floor(state.gridW / 2), 4);
     }
+
+    // Risk it for gazers. Cannot be guaranteed.
+    if (hp >= 5) {
+        let gazerGuess = knownGameState.guessGazer();
+        if (gazerGuess != null) {
+            console.log(`Hitting the guessed gazer`);
+            return gazerGuess;
+        }
+    }
+
 
     // Knapsack - try to click the most powerful enemy that allows us to spend all our hp
     let knownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined && knownGameState.grid[a.ty][a.tx].knownPower() > 0);
