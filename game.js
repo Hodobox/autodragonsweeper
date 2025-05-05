@@ -2689,6 +2689,20 @@ function maybeGetNextClick() {
         }
     }
 
+    // If we didn't find the dragon egg yet, poke around for it
+    if (!knownGameState.dragonEggFound) {
+        let dragonNeighbors = getNeighborsWithDiagonals(Math.floor(state.gridW / 2), 4);
+        let clickableNeighbors = dragonNeighbors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() > 0 || !a.revealed);
+        clickableNeighbors.sort((a, b) => knownGameState.grid[a.ty][a.tx].worstCasePower() - knownGameState.grid[b.ty][b.tx].worstCasePower());
+        if (clickableNeighbors.length) {
+            let c = clickableNeighbors[0];
+            if (hp >= knownGameState.grid[c.ty][c.tx].worstCasePower()) {
+                console.log(`Poking around for the egg by hitting ${c.ty} ${c.tx}`);
+                return getActorIndexAt(c.tx, c.ty);
+            }
+        }
+    }
+
 
     // Knapsack - try to click the most powerful enemy that allows us to spend all our hp
     let knownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined && knownGameState.grid[a.ty][a.tx].knownPower() > 0);
