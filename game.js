@@ -2636,7 +2636,13 @@ function revealingPower(e) {
 
         power += cluesSoFar;
     }
-    return power;
+
+    if (knownGameState.grid[e.ty][e.tx].worstCasePower() == 0) {
+        // comparing heals
+        return power;
+    }
+
+    return power / knownGameState.grid[e.ty][e.tx].worstCasePower();
 }
 
 function tryKillingAbeforeB(a, b) {
