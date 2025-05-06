@@ -2730,6 +2730,16 @@ function maybeGetNextClick() {
         }
     }
 
+    // Try to hit an unrevealed square with the lowest worst case power
+    let unknownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
+    unknownEnemies = unknownEnemies.map(e => ({ x: e.tx, y: e.ty, power: knownGameState.grid[e.ty][e.tx].worstCasePower() }));
+    unknownEnemies.sort((a, b) => a.power - b.power);
+    if (unknownEnemies.length > 0 && unknownEnemies[0].power <= hp) {
+        let hit = unknownEnemies[0];
+        console.log(`Can hit unknown square at ${hit.y} ${hit.x} with at most ${hit.power} power to try and reveal more of the board`);
+        return getActorIndexAt(hit.x, hit.y);
+    }
+
 
     // Knapsack - try to click the most powerful enemy that allows us to spend all our hp
     let knownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined && knownGameState.grid[a.ty][a.tx].knownPower() > 0);
@@ -2742,16 +2752,6 @@ function maybeGetNextClick() {
             console.log(`Can kill enemy at ${knownEnemies[i].y} ${knownEnemies[i].x} with power ${knownEnemies[i].power} (reveal ${knownEnemies[i].revealPower}) and spend all health eventually`);
             return getActorIndexAt(knownEnemies[i].x, knownEnemies[i].y);
         }
-    }
-
-    // Try to hit an unrevealed square with the lowest worst case power
-    let unknownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
-    unknownEnemies = unknownEnemies.map(e => ({ x: e.tx, y: e.ty, power: knownGameState.grid[e.ty][e.tx].worstCasePower() }));
-    unknownEnemies.sort((a, b) => a.power - b.power);
-    if (unknownEnemies.length > 0 && unknownEnemies[0].power <= hp) {
-        let hit = unknownEnemies[0];
-        console.log(`Can hit unknown square at ${hit.y} ${hit.x} with at most ${hit.power} power to try and reveal more of the board`);
-        return getActorIndexAt(hit.x, hit.y);
     }
 
     // Try to hit the most interesting enemy we can
