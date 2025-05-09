@@ -2526,6 +2526,36 @@ function updateKnownGameState() {
         }
     }
 
+    // if a ? has only 1 square in range that could be a Gazer, it's him
+    for (let a of state.actors.filter((a) => showsGazerQuestionmark(a))) {
+        let gazers = state.actors.filter((g) => distance(a.tx, a.ty, g.tx, g.ty) <= 2 && knownGameState.grid[g.ty][g.tx].couldBe(ActorId.Gazer));
+        if (gazers.length == 1 && knownGameState.grid[gazers[0].ty][gazers[0].tx].knownActor() != ActorId.Gazer) {
+            let g = gazers[0];
+            console.log(`Gazer pinpointed at ${g.ty} ${g.tx} - only possibility to show ? at ${a.ty} ${a.tx}`);
+            knownGameState.grid[g.ty][g.tx].possibleActors = [makeActor(ActorId.Gazer)]
+        } else if (gazers.length == 0) {
+            console.log(`ERROR: ? without possible gazer in range: ${a.ty} ${a.tx}`);
+        }
+    }
+
+    // squares next to visible numbers can not be Gazers
+    for (let a of state.actors) {
+        if (getVisibleAttackNumber(a) == null) {
+            continue;
+        }
+
+        for (let dx = -2; dx <= 2; ++dx) {
+            for (let dy = -2; dy <= 2; ++dy) {
+                if (Math.abs(dx) + Math.abs(dy) > 2) continue;
+                let x = a.tx + dx;
+                let y = a.ty + dy;
+                if (x >= 0 && y >= 0 && x < state.gridW && y < state.gridH) {
+                    knownGameState.grid[y][x].removePossibleActor(ActorId.Gazer);
+                }
+            }
+        }
+    }
+
     if (!knownGameState.allRevealed) {
         knownGameState.allRevealed = state.actors.every((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined);
         if (knownGameState.allRevealed) {
