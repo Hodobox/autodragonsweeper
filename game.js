@@ -1900,7 +1900,7 @@ function constructInitialGrid() {
 class KnownGameState {
     constructor() {
         this.grid = constructInitialGrid();
-        this.mimicFound = null;
+        this.mimicFound = false;
         this.loversFound = false;
         this.guardFound = [[false, false], [false, false]];
         this.bigSlimesFound = false;
@@ -2239,7 +2239,7 @@ function updateKnownGameState() {
     }
 
     // if we have a chest where only mimic can be, we found him
-    if (knownGameState.mimicFound == null) {
+    if (!knownGameState.mimicFound) {
 
         for (let i = 0; i < state.actors.length; i++) {
             let a = state.actors[i];
@@ -2352,14 +2352,7 @@ function updateKnownGameState() {
             let atMostCreaturePowerWithoutMe = atMostCreaturePower - knownGameState.grid[n.ty][n.tx].worstCaseNonminePower();
             let needAtLeastThisCreaturePower = missingCreaturePower - atMostCreaturePowerWithoutMe;
 
-            // for (let act of knownGameState.grid[n.ty][n.tx].possibleActors) {
-            //     if (act.monsterLevel < needAtLeastThisCreaturePower) {
-            //         console.log(`Kicking out ${act.id} out of ${n.ty}, ${n.tx} because it needs to be at least ${needAtLeastThisCreaturePower}: missing ${missingCreaturePower}, can do at most ${atMostCreaturePower}, without me at most ${atMostCreaturePowerWithoutMe}`);
-            //     }
-            // }
             knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel >= needAtLeastThisCreaturePower);
-
-
         }
     }
 
@@ -2466,9 +2459,9 @@ function updateKnownGameState() {
 
     // if we revealed slimes, and have not found rat king yet, try to spot him
     if (!knownGameState.ratKingFound && knownGameState.turn5IntoRatKing) {
-        let candidate = state.actors.find((a) => !a.revealed && knownGameState.grid[a.ty][a.tx].knownPower() == 5);
+        let candidate = state.actors.find((a) => !a.revealed && knownGameState.grid[a.ty][a.tx].knownPower() == 5 && knownGameState.grid[a.ty][a.tx].knownActor() != ActorId.Gazer);
         if (candidate != undefined) {
-            console.log(`Slimes have been cleared and we found a 5, it's the rat king: ${candidate.ty} ${candidate.tx}`);
+            console.log(`Slimes have been cleared and we found a 5, so it's the rat king: ${candidate.ty} ${candidate.tx}`);
             knownGameState.grid[candidate.ty][candidate.tx].possibleActors = [makeActor(ActorId.RatKing)];
             knownGameState.ratKingFound = true;
             knownGameState.turn5IntoRatKing = false;
@@ -2519,7 +2512,6 @@ function updateKnownGameState() {
             }
         }
         else {
-
             let slimes = possible.filter((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.BigSlime);
             for (slime of slimes) {
                 if (knownGameState.bigSlimes.find((b) => b[0] == slime.ty && b[1] == slime.tx) == undefined) {

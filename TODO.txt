@@ -1,0 +1,4 @@
+click last possible gazer square?
+hunt towards MineKing from further away?
+spot gargoyle even without seeing picture? <- need a 'is or was' implementation...
+remove gazer not next to ?
