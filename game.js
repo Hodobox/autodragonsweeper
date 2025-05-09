@@ -1761,6 +1761,7 @@ class KnownGameStateGridSquare {
         this.tx = tx;
         this.ty = ty;
         this.wallNeighborFound = false;
+        this.wasWall = false;
         this.neighborMinesPopulated = false;
     }
 
@@ -1910,6 +1911,7 @@ class KnownGameState {
         // from possible actors, unless it is exactly it
         this.revealedBySpells = [];
         this.turn5IntoRatKing = false;
+        this.allRevealed = false;
         this.lastUpdatePossibilities = 0;
         this.lastUpdateWasMeaningful = true;
     }
@@ -2270,6 +2272,10 @@ function updateKnownGameState() {
                     }
                 }
             }
+            else if (!knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Giant)) {
+                // mirror cannot be Giant
+                knownGameState.grid[a.ty][state.gridW - a.tx - 1].removePossibleActor(ActorId.Giant);
+            }
         }
     }
 
@@ -2355,8 +2361,9 @@ function updateKnownGameState() {
     // Walls with no wall neighbor and last remaining diagonal neighbor -> wall
     for (let a of state.actors) {
         if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Wall && !knownGameState.grid[a.ty][a.tx].wallNeighborFound) {
+            knownGameState.grid[a.ty][a.tx].wasWall = true;
             let neighs = getNeighborsCross(a.tx, a.ty);
-            if (neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownActor() == ActorId.Wall).length) {
+            if (neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownActor() == ActorId.Wall || knownGameState.grid[n.ty][n.tx].wasWall).length) {
                 knownGameState.grid[a.ty][a.tx].wallNeighborFound = true;
                 continue;
             }
@@ -2522,6 +2529,13 @@ function updateKnownGameState() {
         }
     }
 
+    if (!knownGameState.allRevealed) {
+        knownGameState.allRevealed = state.actors.every((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined);
+        if (knownGameState.allRevealed) {
+            console.log(`All powers on board are known`);
+        }
+    }
+
     const currentUpdatePossibilities = knownGameState.totalPossibilities();
     knownGameState.lastUpdateWasMeaningful = (currentUpdatePossibilities != knownGameState.lastUpdatePossibilities);
     // console.log(`Just had a meaningful update: ${knownGameState.lastUpdateWasMeaningful}, ${knownGameState.lastUpdatePossibilities} -> ${currentUpdatePossibilities}`);
@@ -2587,12 +2601,69 @@ function maybeGetFreeClick() {
     return click;
 }
 
-function knapsackFight(enemies, dp, i, hp) {
-    if (i == enemies.length) {
-        return hp == 0;
+
+// bunch of heuristic nonsense trying to figure out how good this square is to click
+function computeClickValue(a) {
+
+    let value = 0;
+
+    // 10 value for possible eggs, neighbors of MineKing
+    if (!knownGameState.dragonEggFound && knownGameState.grid[a.ty][a.tx].couldBe(ActorId.DragonEgg)) {
+        value += 10;
     }
 
-    if (hp < 0) {
+    if (!knownGameState.mineKingFound && getNeighborsWithDiagonals(a.tx, a.ty).find((n) => knownGameState.grid[n.ty][n.tx].couldBe(ActorId.MineKing) != undefined)) {
+        value += 10;
+    }
+
+    // for each unknown neighbor, 0.1 value for each known square around it
+    for (let n of getNeighborsWithDiagonals(a.tx, a.ty).filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined)) {
+        value += 0.1 * getNeighborsWithDiagonals(n.tx, n.ty).filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() != undefined).length;
+    }
+
+    // 1 value if we don't know our power
+    value += 1 * (knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
+
+    let danger = (knownGameState.grid[a.ty][a.tx].worstCasePower() + knownGameState.grid[a.ty][a.tx].bestCasePower()) / 2;
+    danger = Math.max(0.5, danger);
+
+    return value / Math.sqrt(danger);
+}
+
+function tryKillingAbeforeB(a, b) {
+    if (a.revealValue != b.revealValue) {
+        // higher revealing value first
+        return b.revealValue - a.revealValue;
+    }
+
+    // lower power first, unless we know everything (then switch to clearing mode)
+    if (knownGameState.allRevealed) {
+        return a.power - b.power;
+    }
+
+    return b.power - a.power;
+}
+
+function cleanupOrder(a, b) {
+    let isAlover = knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Giant;
+    let isBlover = knownGameState.grid[b.ty][b.tx].knownActor() == ActorId.Giant;
+
+    if (isAlover != isBlover) {
+        return isBlover - isAlover;
+    }
+
+    return knownGameState.grid[b.ty][b.tx].knownPower() - knownGameState.grid[a.ty][a.tx].knownPower();
+}
+
+function knapsackToEnd(dp, powers, i, hp) {
+    if (hp == 0) {
+        return true;
+    }
+    else if (hp < 0) {
+        return false;
+    }
+
+    if (i >= powers.length) {
         return false;
     }
 
@@ -2600,63 +2671,35 @@ function knapsackFight(enemies, dp, i, hp) {
         return dp[i][hp];
     }
 
-    dp[i][hp] = false;
-    for (let k = i + 1; k <= enemies.length && !dp[i][hp]; ++k) {
-        dp[i][hp] ||= knapsackFight(enemies, dp, k, hp - enemies[i].power);
-    }
+    dp[i][hp] = knapsackToEnd(dp, powers, i + 1, hp) || knapsackToEnd(dp, powers, i + 1, hp - powers[i]);
     return dp[i][hp];
 }
 
-function canKillEnemyAndSpendAllHealth(enemies, hp) {
+// knapsack from highest health enemy, but prefering lovers
+function cleanupPhaseClick() {
+    let enemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() > 0);
+    enemies.sort(cleanupOrder);
+    let powers = enemies.map((a) => knownGameState.grid[a.ty][a.tx].knownPower());
     const N = enemies.length;
-    let dp = [];
+    const hp = state.player.hp - 1;
+
+    let dp = Array(N).fill().map(() => Array(hp + 1).fill(-1));
+
     for (let i = 0; i < N; ++i) {
-        dp[i] = [];
-        for (let h = 0; h <= hp; ++h) {
-            dp[i][h] = -1;
+        if (knapsackToEnd(dp, powers, i + 1, hp - powers[i])) {
+            console.log(`Cleanup: knapsack allows enemy ${enemies[i].ty} ${enemies[i].tx} with power ${powers[i]}`);
+            return getActorIndexAt(enemies[i].tx, enemies[i].ty);
         }
     }
 
+    // try hitting anything
     for (let i = 0; i < N; ++i) {
-        knapsackFight(enemies, dp, i, hp);
-    }
-
-    return dp.map((row) => row[hp]);
-}
-
-function revealingPower(e) {
-
-    let power = 0;
-    for (let n of getNeighborsWithDiagonals(e.tx, e.ty)) {
-        if (knownGameState.grid[n.ty][n.tx].knownPower() != undefined) {
-            continue;
+        if (powers[i] <= hp) {
+            console.log(`Cleanup: cannot clear cleanly, hitting biggest enemy at ${enemies[i].ty} ${enemies[i].tx} with power ${powers[i]}`);
+            return getActorIndexAt(enemies[i].tx, enemies[i].ty);
         }
-
-        let cluesSoFar = getNeighborsWithDiagonals(n.tx, n.ty).filter((nn) => knownGameState.grid[nn.ty][nn.tx].knownPower() != undefined).length;
-
-        power += cluesSoFar;
     }
 
-    if (knownGameState.grid[e.ty][e.tx].worstCasePower() == 0) {
-        // comparing heals
-        return power;
-    }
-
-    return power / knownGameState.grid[e.ty][e.tx].worstCasePower();
-}
-
-function tryKillingAbeforeB(a, b) {
-    if (a.revealPower != b.revealPower) {
-        // higher revealing power first
-        return b.revealPower - a.revealPower;
-    }
-
-    // lower power first, unless dragon is defeated (then switch to clearing mode)
-    if (knownGameState.grid[4][Math.floor(state.gridW / 2)].knownActor() == ActorId.Dragon) {
-        return a.power - b.power;
-    }
-
-    return b.power - a.power;
 }
 
 function maybeGetNextClick() {
@@ -2716,49 +2759,21 @@ function maybeGetNextClick() {
         }
     }
 
-    // If we didn't find the dragon egg yet, poke around for it
-    if (!knownGameState.dragonEggFound) {
-        let dragonNeighbors = getNeighborsWithDiagonals(Math.floor(state.gridW / 2), 4);
-        let clickableNeighbors = dragonNeighbors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() > 0 || !a.revealed);
-        clickableNeighbors.sort((a, b) => knownGameState.grid[a.ty][a.tx].worstCasePower() - knownGameState.grid[b.ty][b.tx].worstCasePower());
-        if (clickableNeighbors.length) {
-            let c = clickableNeighbors[0];
-            if (hp >= knownGameState.grid[c.ty][c.tx].worstCasePower()) {
-                console.log(`Poking around for the egg by hitting ${c.ty} ${c.tx}`);
-                return getActorIndexAt(c.tx, c.ty);
+    if (knownGameState.allRevealed) {
+        let cleanupClick = cleanupPhaseClick();
+        if (cleanupClick != null) {
+            return cleanupClick;
+        }
+    }
+    else {
+        let enemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() != 0).map((a) => ({ tx: a.tx, ty: a.ty, revealValue: computeClickValue(a) }));
+        enemies.sort(tryKillingAbeforeB);
+
+        for (let a of enemies) {
+            if (knownGameState.grid[a.ty][a.tx].worstCasePower() <= hp) {
+                console.log(`Killing enemy ${a.ty} ${a.tx} with interest value ${a.revealValue}`);
+                return getActorIndexAt(a.tx, a.ty);
             }
-        }
-    }
-
-    // Try to hit an unrevealed square with the lowest worst case power
-    let unknownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
-    unknownEnemies = unknownEnemies.map(e => ({ x: e.tx, y: e.ty, power: knownGameState.grid[e.ty][e.tx].worstCasePower() }));
-    unknownEnemies.sort((a, b) => a.power - b.power);
-    if (unknownEnemies.length > 0 && unknownEnemies[0].power <= hp) {
-        let hit = unknownEnemies[0];
-        console.log(`Can hit unknown square at ${hit.y} ${hit.x} with at most ${hit.power} power to try and reveal more of the board`);
-        return getActorIndexAt(hit.x, hit.y);
-    }
-
-
-    // Knapsack - try to click the most powerful enemy that allows us to spend all our hp
-    let knownEnemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined && knownGameState.grid[a.ty][a.tx].knownPower() > 0);
-    knownEnemies = knownEnemies.map((e) => ({ x: e.tx, y: e.ty, power: knownGameState.grid[e.ty][e.tx].knownPower(), revealPower: revealingPower(e) }));
-    knownEnemies.sort(tryKillingAbeforeB);
-
-    let canKill = canKillEnemyAndSpendAllHealth(knownEnemies, hp);
-    for (let i = 0; i < canKill.length; i++) {
-        if (canKill[i]) {
-            console.log(`Can kill enemy at ${knownEnemies[i].y} ${knownEnemies[i].x} with power ${knownEnemies[i].power} (reveal ${knownEnemies[i].revealPower}) and spend all health eventually`);
-            return getActorIndexAt(knownEnemies[i].x, knownEnemies[i].y);
-        }
-    }
-
-    // Try to hit the most interesting enemy we can
-    for (let e of knownEnemies) {
-        if (e.power <= hp) {
-            console.log(`Hitting the most interesting enemy I can at ${e.y} ${e.x}`);
-            return getActorIndexAt(e.x, e.y);
         }
     }
 
@@ -2779,7 +2794,7 @@ function maybeGetNextClick() {
 
     // Use a heal
     let heals = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Medikit);
-    heals.sort((a, b) => revealingPower(b) - revealingPower(a));
+    heals.sort((a, b) => computeClickValue(b) - computeClickValue(a));
     if (heals.length > 0) {
         console.log(`Must take a heal`);
         return getActorIndexAt(heals[0].tx, heals[0].ty);
