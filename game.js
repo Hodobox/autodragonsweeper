@@ -2771,8 +2771,9 @@ function explorationPhaseClick() {
             if (ee.ty == e.ty && ee.tx == e.tx) {
                 continue;
             }
-            for (let i = hp; i >= p; --i) {
-                canClearWithoutE[i] ||= canClearWithoutE[i - knownGameState.grid[ee.ty][ee.tx].knownPower()];
+            let pp = knownGameState.grid[ee.ty][ee.tx].knownPower();
+            for (let i = hp; i >= pp; --i) {
+                canClearWithoutE[i] ||= canClearWithoutE[i - pp];
             }
         }
 
@@ -2793,8 +2794,9 @@ function explorationPhaseClick() {
             if (ee.ty == e.ty && ee.tx == e.tx) {
                 continue;
             }
-            for (let i = hp; i >= p; --i) {
-                canClearWithoutE[i] ||= canClearWithoutE[i - knownGameState.grid[ee.ty][ee.tx].knownPower()];
+            let pp = knownGameState.grid[ee.ty][ee.tx].knownPower();
+            for (let i = hp; i >= pp; --i) {
+                canClearWithoutE[i] ||= canClearWithoutE[i - pp];
             }
         }
 
@@ -4400,6 +4402,12 @@ function updatePlaying(ctx, dt) {
             if (anim != undefined) icon = anim.frames[anim.timer.frame];
             let coords = heartOffsets[i - 1];
             drawFrame(ctx, stripIcons, icon, coords[0] + offx, coords[1] + offy);
+        }
+
+        // show help text at beginning of the game
+        if (state.player.level < 4) {
+            fontHUD.drawLine(ctx, "Click XP bar", offx + heartOffsets[4][0] + 40, offy, FONT_VCENTER);
+            fontHUD.drawLine(ctx, "for automated click", offx + heartOffsets[4][0] + 15, offy + 15, FONT_VCENTER);
         }
     }
 
