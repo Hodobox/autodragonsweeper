@@ -2303,14 +2303,19 @@ function updateKnownGameState() {
         }
 
         let knownPower = 0;
+        let knownCreaturePower = 0;
         for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
             let nPower = knownGameState.grid[n.ty][n.tx].knownPower();
             if (nPower != null) {
                 knownPower += nPower;
+                if (nPower != 100) {
+                    knownCreaturePower += nPower;
+                }
             }
         }
 
         const missingPower = number - knownPower;
+        const missingCreaturePower = (number % 100) - knownCreaturePower;
 
         for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
             if (n.revealed || knownGameState.grid[n.ty][n.tx].knownPower() != null) {
@@ -2318,6 +2323,13 @@ function updateKnownGameState() {
             }
 
             knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel <= missingPower);
+
+            let vyhadzujem = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => !(a.monsterLevel >= 100 || a.monsterLevel <= missingCreaturePower));
+            if (vyhadzujem.length) {
+                console.log(`Z ${n.ty} ${n.tx} vyhadzujem ${vyhadzujem.map((a) => "" + a.monsterLevel)}`);
+            }
+            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel >= 100 || a.monsterLevel <= missingCreaturePower);
+
         }
     }
 
