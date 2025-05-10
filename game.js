@@ -2577,7 +2577,7 @@ function updateKnownGameState() {
                 if (Math.abs(dx) + Math.abs(dy) > 2) continue;
                 let x = a.tx + dx;
                 let y = a.ty + dy;
-                if (x >= 0 && y >= 0 && x < state.gridW && y < state.gridH) {
+                if (x >= 0 && y >= 0 && x < state.gridW && y < state.gridH && knownGameState.grid[y][x].knownActor() != ActorId.Gazer) {
                     knownGameState.grid[y][x].removePossibleActor(ActorId.Gazer);
                 }
             }
