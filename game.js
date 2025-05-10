@@ -4,8 +4,15 @@
 
 let RELEASE = true;
 let debugOn = false;
+let solverLoggingOn = true;
 let debugLines = [];
 let fontDebug;
+let solverTesting = false;
+let lastSolverTestingAction = Date.now();
+/** @type {SolverStats[]} */
+let solverTestingStats = [];
+let solverTestingCadenceMs = 100;
+let solverTestingNumGames = 100;
 /** @type {BitmapFont} */
 let fontUINumbers;
 let fontHUD;
@@ -52,6 +59,8 @@ let stripStoryteller;
 let state;
 /** @type {KnownGameState} */
 let knownGameState;
+/** @type {SolverStats} */
+let solverStats;
 let revealValues;
 let collectedStamps = [];
 
@@ -530,6 +539,15 @@ function newGame() {
     state.crownAnimation.loop([4, 5, 6], 9);
 
     knownGameState = new KnownGameState();
+    solverStats = new SolverStats();
+    if (solverTestingStats.length == solverTestingNumGames) {
+        solverTesting = false;
+        console.log(`Done with solver testing`);
+    }
+
+    if (solverTesting) {
+        console.log(`Solver testing game ${solverTestingStats.length + 1}/${solverTestingNumGames}`);
+    }
 }
 
 function generateDungeon() {
@@ -1754,6 +1772,12 @@ function getAttackNumber(tx, ty) {
 
 const SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX = -47;
 
+function solverLog(msg) {
+    if (solverLoggingOn) {
+        console.log(msg);
+    }
+}
+
 function isHiddenByGazer(actor) {
     return (state.actors.find(b => b.id == ActorId.Gazer && !b.defeated && distance(b.tx, b.ty, actor.tx, actor.ty) <= 2) != undefined);
 }
@@ -1801,7 +1825,7 @@ class KnownGameStateGridSquare {
             return null;
         }
         if (this.possibleActors.length == 0) {
-            console.log(`ERROR: empty possible actors list at ${this.ty}, ${this.tx}`);
+            solverLog(`ERROR: empty possible actors list at ${this.ty}, ${this.tx}`);
         }
         return this.possibleActors[0].monsterLevel;
     }
@@ -1953,8 +1977,12 @@ class KnownGameState {
         return ret;
     }
 
+    stableKnowledge() {
+        return !this.lastUpdateWasMeaningful;
+    }
+
     disarmMines() {
-        console.log("Disarming mines");
+        solverLog("Disarming mines");
         for (let i = 0; i < state.gridH; ++i) {
             for (let k = 0; k < state.gridW; ++k) {
                 if (knownGameState.grid[i][k].knownActor() == ActorId.Mine) {
@@ -2003,7 +2031,7 @@ class KnownGameState {
             }
 
             if ((number % 100) - (knownNumber % 100) < 11) {
-                console.log(`No mimic at ${ty} ${tx} because ${n.ty} ${n.tx} shows ${number} and sees ${knownNumber}`);
+                solverLog(`No mimic at ${ty} ${tx} because ${n.ty} ${n.tx} shows ${number} and sees ${knownNumber}`);
                 return false;
             }
         }
@@ -2016,7 +2044,7 @@ class KnownGameState {
             return;
         }
         this.wizardClearedExcept = except.length;
-        console.log(`Clearing out wizard possibility from the grid except ${except}`);
+        solverLog(`Clearing out wizard possibility from the grid except ${except}`);
         for (let y = 0; y < state.gridH; ++y) {
             for (let x = 0; x < state.gridW; ++x) {
                 if (except.find((e) => e[0] == y && e[1] == x) == undefined) {
@@ -2027,13 +2055,13 @@ class KnownGameState {
     }
 
     foundWizard(tx, ty) {
-        console.log(`Found wizard at ${ty}, ${tx}`);
+        solverLog(`Found wizard at ${ty}, ${tx}`);
         this.wizardFound = true;
         this.grid[ty][tx].possibleActors = [makeActor(ActorId.Wizard)];
         this.clearWizard([[ty, tx]]);
         for (let n of getNeighborsWithDiagonals(tx, ty)) {
             if (!n.revealed && this.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
-                console.log(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
+                solverLog(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
                 this.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
                 this.bigSlimes.push([n.ty, n.tx]);
             }
@@ -2062,12 +2090,12 @@ class KnownGameState {
         intersectionWizards = intersectionWizards.filter((w) => isEdge(w.tx, w.ty) && knownGameState.grid[w.ty][w.tx].couldBe(ActorId.Wizard));
 
         if (intersectionWizards.length == 0) {
-            console.log(`ERROR: apparently there is no cross-section of slime neighbors that can be wizard.`);
+            solverLog(`ERROR: apparently there is no cross-section of slime neighbors that can be wizard.`);
         }
         else if (intersectionWizards.length == 1) {
             const ty = intersectionWizards[0].ty;
             const tx = intersectionWizards[0].tx;
-            console.log(`Intersection of all slime neighbors yields only one possible wizard ${ty} ${tx}`);
+            solverLog(`Intersection of all slime neighbors yields only one possible wizard ${ty} ${tx}`);
             this.foundWizard(tx, ty);
             return;
         }
@@ -2096,7 +2124,7 @@ class KnownGameState {
                     const twiny = possibleTwins[0].ty;
                     const tx = Math.floor((sx + twinx) / 2);
                     const ty = Math.floor((sy + twiny) / 2);
-                    console.log(`Edge slime at ${sy} ${sx} has only one candidate twin ${twiny} ${twinx}`);
+                    solverLog(`Edge slime at ${sy} ${sx} has only one candidate twin ${twiny} ${twinx}`);
                     this.foundWizard(tx, ty);
                     return;
                 }
@@ -2107,7 +2135,7 @@ class KnownGameState {
                     // only 1 place for the wizard
                     const ty = possibleWizards[0].ty;
                     const tx = possibleWizards[0].tx;
-                    console.log(`Edge slime at ${sy} ${sx} has only one possible wizard ${ty} ${tx}`);
+                    solverLog(`Edge slime at ${sy} ${sx} has only one possible wizard ${ty} ${tx}`);
                     this.foundWizard(tx, ty);
                     return;
                 }
@@ -2144,11 +2172,55 @@ class KnownGameState {
             return null;
         }
 
-        console.log(`Guessing gazer at ${bestGazer.ty}, ${bestGazer.tx} because it matches ${mostQuestionMarks} question marks`);
+        solverLog(`Guessing gazer at ${bestGazer.ty}, ${bestGazer.tx} because it matches ${mostQuestionMarks} question marks`);
         return getActorIndexAt(bestGazer.tx, bestGazer.ty);
     }
 
 }
+
+class EndOfGameStats {
+    constructor() {
+        this.won = false;
+        this.cleared = false;
+        this.score = 0;
+        this.damageToGo = 0;
+        this.hpLeftOver = -1; // only iff cleared
+    }
+}
+
+function computeEndOfGameStats() {
+    stats = new EndOfGameStats();
+    stats.score = state.player.score;
+    stats.won = state.status == GameStatus.WinScreen;
+    stats.cleared = state.player.score == state.stats.totalXP;
+    stats.damageToGo = state.actors.reduce((acc, v) => { return acc + (v.monsterLevel % 100) + v.wallHP; }, 0);
+    if (stats.cleared) {
+        stats.hpLeftOver = state.player.hp - 1;
+    }
+    return stats;
+}
+
+class SolverStats {
+    constructor() {
+        this.endStats = new EndOfGameStats();
+        this.tookRisk = false;
+        this.freeActions = 0;
+        this.nonfreeActions = 0;
+        this.mineKingOpportunitiesMissed = 0;
+        this.earlyWallHits = 0;
+    }
+
+    computeEndStats() {
+        this.endStats = computeEndOfGameStats();
+    }
+}
+
+
+function updateSolverTestingStats() {
+    solverStats.computeEndStats();
+    solverTestingStats.push(solverStats);
+}
+
 
 function updateKnownGameState() {
 
@@ -2176,13 +2248,13 @@ function updateKnownGameState() {
         if (knownGameState.mimicFound) {
             if (knownGameState.mimicFound[0] == a.ty && knownGameState.mimicFound[1] == a.tx) {
                 if (a.id != ActorId.Mimic) {
-                    console.log(`ERROR: at ${a.ty} ${a.tx} should be mimic, but there is ${a.id}`);
+                    solverLog(`ERROR: at ${a.ty} ${a.tx} should be mimic, but there is ${a.id}`);
                 }
                 knownGameState.grid[a.ty][a.tx].possibleActors = [a];
             }
             else {
                 if (a.id == ActorId.Mimic) {
-                    console.log(`ERROR: believe to have found mimic at ${knownGameState.mimicFound}, but he is at ${a.ty} ${a.tx}`);
+                    solverLog(`ERROR: believe to have found mimic at ${knownGameState.mimicFound}, but he is at ${a.ty} ${a.tx}`);
                 }
                 knownGameState.grid[a.ty][a.tx].possibleActors = [a];
             }
@@ -2267,7 +2339,7 @@ function updateKnownGameState() {
             let a = state.actors[i];
 
             if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Mimic) {
-                console.log(`Found mimic at ${a.ty}, ${a.tx}`);
+                solverLog(`Found mimic at ${a.ty}, ${a.tx}`);
                 knownGameState.mimicFound = [a.ty, a.tx];
                 for (let y = 0; y < state.gridH; ++y) {
                     for (let x = 0; x < state.gridW; ++x) {
@@ -2284,9 +2356,9 @@ function updateKnownGameState() {
     if (!knownGameState.loversFound) {
         for (let a of state.actors) {
             if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Giant) {
-                console.log(`Found lover at ${a.ty}, ${a.tx}`);
+                solverLog(`Found lover at ${a.ty}, ${a.tx}`);
                 const other_x = state.gridW - a.tx - 1;
-                console.log(`So other lover is at ${a.ty}, ${a.tx}`);
+                solverLog(`So other lover is at ${a.ty}, ${a.tx}`);
                 knownGameState.loversFound = true;
 
                 knownGameState.grid[a.ty][other_x].possibleActors = [makeActor(ActorId.Giant)];
@@ -2399,7 +2471,7 @@ function updateKnownGameState() {
                 continue;
             }
             let n = unknown_neighs[0];
-            console.log(`Wall ${a.ty}, ${a.tx} found neighbor at ${n.ty}, ${n.tx}`);
+            solverLog(`Wall ${a.ty}, ${a.tx} found neighbor at ${n.ty}, ${n.tx}`);
             knownGameState.grid[a.ty][a.tx].wallNeighborFound = true;
             knownGameState.grid[n.ty][n.tx].wallNeighborFound = true;
             knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Wall)];
@@ -2420,7 +2492,7 @@ function updateKnownGameState() {
         const possibleMineNeighs = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].worstCasePower() == 100);
 
         if (possibleMineNeighs.length == numMines) {
-            console.log(`Need ${numMines} mines around ${a.ty}, ${a.tx} and exactly as many spots!`);
+            solverLog(`Need ${numMines} mines around ${a.ty}, ${a.tx} and exactly as many spots!`);
             knownGameState.grid[a.ty][a.tx].neighborMinesPopulated = true;
             for (let n of possibleMineNeighs) {
                 knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Mine)];
@@ -2437,7 +2509,7 @@ function updateKnownGameState() {
                 continue;
             }
 
-            console.log(`Found guard in quadrant y=${yq} x=${xq}`);
+            solverLog(`Found guard in quadrant y=${yq} x=${xq}`);
 
             for (let x = xq * 7; x < xq * 7 + 6; ++x) {
                 for (let y = yq * 5; y < yq * 5 + 4 + yq; ++y) {
@@ -2455,7 +2527,7 @@ function updateKnownGameState() {
     if (!knownGameState.bigSlimesFound) {
         for (let a of state.actors) {
             if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.BigSlime) {
-                console.log(`Spotted a big slime, clearing out far away squares`);
+                solverLog(`Spotted a big slime, clearing out far away squares`);
                 knownGameState.bigSlimesFound = true;
                 for (let i = 0; i < state.gridH; ++i) {
                     for (let k = 0; k < state.gridW; ++k) {
@@ -2470,7 +2542,7 @@ function updateKnownGameState() {
 
     // Remove possibility of revealed entities from spaces which don't contain them
     for (let revealed of knownGameState.revealedBySpells) {
-        console.log(`Cleaning out non-revealed instances of ${revealed}`);
+        solverLog(`Cleaning out non-revealed instances of ${revealed}`);
         for (let y = 0; y < state.gridH; y++) {
             for (let x = 0; x < state.gridW; x++) {
                 if (knownGameState.grid[y][x].knownActor() != revealed) {
@@ -2489,7 +2561,7 @@ function updateKnownGameState() {
     if (!knownGameState.ratKingFound && knownGameState.turn5IntoRatKing) {
         let candidate = state.actors.find((a) => !a.revealed && knownGameState.grid[a.ty][a.tx].knownPower() == 5 && knownGameState.grid[a.ty][a.tx].knownActor() != ActorId.Gazer);
         if (candidate != undefined) {
-            console.log(`Slimes have been cleared and we found a 5, so it's the rat king: ${candidate.ty} ${candidate.tx}`);
+            solverLog(`Slimes have been cleared and we found a 5, so it's the rat king: ${candidate.ty} ${candidate.tx}`);
             knownGameState.grid[candidate.ty][candidate.tx].possibleActors = [makeActor(ActorId.RatKing)];
             knownGameState.ratKingFound = true;
             knownGameState.turn5IntoRatKing = false;
@@ -2503,7 +2575,7 @@ function updateKnownGameState() {
         let unknown = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == null);
         if (zeros.length == 0 && unknown.length == 1) {
             let n = unknown[0];
-            console.log(`Found the dragon egg at ${n.ty} ${n.tx}`);
+            solverLog(`Found the dragon egg at ${n.ty} ${n.tx}`);
             knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.DragonEgg)];
         }
     }
@@ -2518,7 +2590,7 @@ function updateKnownGameState() {
             let possible = corners.filter((s) => s.couldBe(ActorId.MineKing));
             if (possible.length == 1) {
                 let p = possible[0];
-                console.log(`MineKing must be at ${p.ty} ${p.tx}`);
+                solverLog(`MineKing must be at ${p.ty} ${p.tx}`);
                 knownGameState.grid[p.ty][p.tx].possibleActors = [makeActor(ActorId.MineKing)];
                 knownGameState.mineKingFound = true;
             }
@@ -2533,7 +2605,7 @@ function updateKnownGameState() {
             knownGameState.wizardFound = true;
             for (let n of getNeighborsWithDiagonals(maybeWizard.tx, maybeWizard.ty)) {
                 if (!n.revealed && knownGameState.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
-                    console.log(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
+                    solverLog(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
                     knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
                     knownGameState.bigSlimes.push([n.ty, n.tx]);
                 }
@@ -2559,10 +2631,10 @@ function updateKnownGameState() {
         let gazers = state.actors.filter((g) => distance(a.tx, a.ty, g.tx, g.ty) <= 2 && knownGameState.grid[g.ty][g.tx].couldBe(ActorId.Gazer));
         if (gazers.length == 1 && knownGameState.grid[gazers[0].ty][gazers[0].tx].knownActor() != ActorId.Gazer) {
             let g = gazers[0];
-            console.log(`Gazer pinpointed at ${g.ty} ${g.tx} - only possibility to show ? at ${a.ty} ${a.tx}`);
+            solverLog(`Gazer pinpointed at ${g.ty} ${g.tx} - only possibility to show ? at ${a.ty} ${a.tx}`);
             knownGameState.grid[g.ty][g.tx].possibleActors = [makeActor(ActorId.Gazer)]
         } else if (gazers.length == 0) {
-            console.log(`ERROR: ? without possible gazer in range: ${a.ty} ${a.tx}`);
+            solverLog(`ERROR: ? without possible gazer in range: ${a.ty} ${a.tx}`);
         }
     }
 
@@ -2587,13 +2659,13 @@ function updateKnownGameState() {
     if (!knownGameState.allRevealed) {
         knownGameState.allRevealed = state.actors.every((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined);
         if (knownGameState.allRevealed) {
-            console.log(`All powers on board are known`);
+            solverLog(`All powers on board are known`);
         }
     }
 
     const currentUpdatePossibilities = knownGameState.totalPossibilities();
     knownGameState.lastUpdateWasMeaningful = (currentUpdatePossibilities != knownGameState.lastUpdatePossibilities);
-    // console.log(`Just had a meaningful update: ${knownGameState.lastUpdateWasMeaningful}, ${knownGameState.lastUpdatePossibilities} -> ${currentUpdatePossibilities}`);
+    // solverLog(`Just had a meaningful update: ${knownGameState.lastUpdateWasMeaningful}, ${knownGameState.lastUpdatePossibilities} -> ${currentUpdatePossibilities}`);
     knownGameState.lastUpdatePossibilities = currentUpdatePossibilities;
 }
 
@@ -2615,7 +2687,7 @@ function getFreeRevealedClick() {
         }
 
         if (g.isXp() || g.knownActor() == ActorId.Treasure || g.knownActor() == ActorId.Gnome || g.knownActor() == ActorId.DragonEgg || g.isSpell()) {
-            console.log(`Clicking ${a.ty} ${a.tx} because it is revealed and xp/treasure/gnome/spell`);
+            solverLog(`Clicking ${a.ty} ${a.tx} because it is revealed and xp/treasure/gnome/spell`);
             return i;
         }
     }
@@ -2631,7 +2703,7 @@ function getRevealingEmptySpaceClick() {
         }
 
         if (knownGameState.grid[a.ty][a.tx].knownPower() == 0 && knownGameState.grid[a.ty][a.tx].knownActor() != ActorId.Crown) {
-            console.log(`Clicking ${a.ty} ${a.tx} because it is unrevealed and 0 power`);
+            solverLog(`Clicking ${a.ty} ${a.tx} because it is unrevealed and 0 power`);
             return i;
         }
     }
@@ -2642,7 +2714,7 @@ function getRevealingEmptySpaceClick() {
 // returns SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX if we should level up
 function optimalLevelUpTimeClick() {
     if (state.player.hp == 1 && state.player.xp >= nextLevelXP(state.player.level)) {
-        console.log(`Optimal time to level up`);
+        solverLog(`Optimal time to level up`);
         return SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX;
     }
     return null;
@@ -2653,6 +2725,9 @@ function maybeGetFreeClick() {
     click = click ?? getFreeRevealedClick();
     click = click ?? optimalLevelUpTimeClick();
     click = click ?? getRevealingEmptySpaceClick();
+    if (click != null) {
+        solverStats.freeActions++;
+    }
     return click;
 }
 
@@ -2739,7 +2814,7 @@ function cleanupPhaseClick() {
 
     for (let i = 0; i < N; ++i) {
         if (knapsackToEnd(dp, powers, i + 1, hp - powers[i])) {
-            console.log(`Cleanup: knapsack allows enemy ${enemies[i].ty} ${enemies[i].tx} with power ${powers[i]}`);
+            solverLog(`Cleanup: knapsack allows enemy ${enemies[i].ty} ${enemies[i].tx} with power ${powers[i]}`);
             return getActorIndexAt(enemies[i].tx, enemies[i].ty);
         }
     }
@@ -2747,7 +2822,7 @@ function cleanupPhaseClick() {
     // try hitting anything
     for (let i = 0; i < N; ++i) {
         if (powers[i] <= hp) {
-            console.log(`Cleanup: cannot clear cleanly, hitting biggest enemy at ${enemies[i].ty} ${enemies[i].tx} with power ${powers[i]}`);
+            solverLog(`Cleanup: cannot clear cleanly, hitting biggest enemy at ${enemies[i].ty} ${enemies[i].tx} with power ${powers[i]}`);
             return getActorIndexAt(enemies[i].tx, enemies[i].ty);
         }
     }
@@ -2792,7 +2867,7 @@ function explorationPhaseClick() {
         }
 
         if (ok) {
-            console.log(`Can reveal unknown ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with interesting enemies`);
+            solverLog(`Can reveal unknown ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with interesting enemies`);
             return getActorIndexAt(e.tx, e.ty);
         }
     }
@@ -2805,7 +2880,7 @@ function explorationPhaseClick() {
         }
 
         if (ok) {
-            console.log(`Can reveal unknown ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with known enemies`);
+            solverLog(`Can reveal unknown ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with known enemies`);
             return getActorIndexAt(e.tx, e.ty);
         }
     }
@@ -2828,7 +2903,7 @@ function explorationPhaseClick() {
         }
 
         if (canClearWithoutE[hp - p]) {
-            console.log(`Can reveal known ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with known enemies`);
+            solverLog(`Can reveal known ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with known enemies`);
             return getActorIndexAt(e.tx, e.ty);
         }
     }
@@ -2851,7 +2926,7 @@ function explorationPhaseClick() {
         }
 
         if (canClearWithoutE[hp - p]) {
-            console.log(`Can reveal known ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with known enemies`);
+            solverLog(`Can reveal known ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with known enemies`);
             return getActorIndexAt(e.tx, e.ty);
         }
     }
@@ -2860,7 +2935,7 @@ function explorationPhaseClick() {
     unknownE.sort((a, b) => knownGameState.grid[a.ty][a.tx].worstCasePower() - knownGameState.grid[b.ty][b.tx].worstCasePower());
     if (unknownE.length > 0) {
         let e = unknownE[0];
-        console.log(`Can't clear, will hit unknown ${e.ty} ${e.tx} with worst case power ${knownGameState.grid[e.ty][e.tx].worstCasePower()}`);
+        solverLog(`Can't clear, will hit unknown ${e.ty} ${e.tx} with worst case power ${knownGameState.grid[e.ty][e.tx].worstCasePower()}`);
         return getActorIndexAt(e.tx, e.ty);
     }
 
@@ -2868,7 +2943,7 @@ function explorationPhaseClick() {
     knownInterestingE.sort((a, b) => knownGameState.grid[b.ty][b.tx].knownPower() - knownGameState.grid[a.ty][a.tx].knownPower());
     if (knownInterestingE.length > 0) {
         let e = knownInterestingE[0];
-        console.log(`Can't clear, will hit interesting ${e.ty} ${e.tx}`);
+        solverLog(`Can't clear, will hit interesting ${e.ty} ${e.tx}`);
         return getActorIndexAt(e.tx, e.ty);
     }
 
@@ -2876,7 +2951,7 @@ function explorationPhaseClick() {
     boringE.sort((a, b) => knownGameState.grid[b.ty][b.tx].knownPower() - knownGameState.grid[a.ty][a.tx].knownPower());
     if (boringE.length > 0) {
         let e = boringE[0];
-        console.log(`Can't clear, will hit boring ${e.ty} ${e.tx}`);
+        solverLog(`Can't clear, will hit boring ${e.ty} ${e.tx}`);
         return getActorIndexAt(e.tx, e.ty);
     }
 
@@ -2905,30 +2980,30 @@ function maybeGetNextClick() {
 
     const mineKing = VIPs.find((p) => p.id == ActorId.MineKing);
     if (hp >= 10 && mineKing != undefined) {
-        console.log(`Killing the MineKing`);
+        solverLog(`Killing the MineKing`);
         return getActorIndexAt(mineKing.x, mineKing.y);
     }
 
     const ratKing = VIPs.find((p) => p.id == ActorId.RatKing);
     if (hp >= 5 && ratKing != undefined) {
-        console.log(`Killing the RatKing`);
+        solverLog(`Killing the RatKing`);
         return getActorIndexAt(ratKing.x, ratKing.y);
     }
 
     const wizard = VIPs.find((p) => p.id == ActorId.Wizard);
     if (hp >= 1 && wizard != undefined) {
-        console.log(`Killing the wizard`);
+        solverLog(`Killing the wizard`);
         return getActorIndexAt(wizard.x, wizard.y);
     }
 
     const gazer = VIPs.find((p) => p.id == ActorId.Gazer);
     if (hp >= 5 && gazer != undefined) {
-        console.log(`Killing a gazer`);
+        solverLog(`Killing a gazer`);
         return getActorIndexAt(gazer.x, gazer.y);
     }
 
     if (hp >= 13 && knownGameState.grid[4][Math.floor(state.gridW / 2)].knownActor() == ActorId.Dragon) {
-        console.log(`Slaying the dragon`);
+        solverLog(`Slaying the dragon`);
         return getActorIndexAt(Math.floor(state.gridW / 2), 4);
     }
 
@@ -2936,7 +3011,7 @@ function maybeGetNextClick() {
     if (hp >= 5) {
         let gazerGuess = knownGameState.guessGazer();
         if (gazerGuess != null) {
-            console.log(`Hitting the guessed gazer`);
+            solverLog(`Hitting the guessed gazer`);
             return gazerGuess;
         }
     }
@@ -2959,13 +3034,13 @@ function maybeGetNextClick() {
     // Walls are always revealed, so we can see their HP
     walls.sort((a, b) => ((a.wallHP - b.wallHP) * 20) + (revealValues[b.ty][b.tx] - revealValues[a.ty][a.tx]));
     if (walls.length > 0 && hp > 0) {
-        console.log(`Dumping HP into a wall`);
+        solverLog(`Dumping HP into a wall`);
         return getActorIndexAt(walls[0].tx, walls[0].ty);
     }
 
     // Level up
     if (state.player.xp >= nextLevelXP(state.player.level)) {
-        console.log(`Reluctantly leveling up`);
+        solverLog(`Reluctantly leveling up`);
         return SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX;
     }
 
@@ -2973,33 +3048,33 @@ function maybeGetNextClick() {
     let heals = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Medikit);
     heals.sort((a, b) => revealValues[b.ty][b.tx] - revealValues[a.ty][a.tx]);
     if (heals.length > 0) {
-        console.log(`Must take a heal`);
+        solverLog(`Must take a heal`);
         return getActorIndexAt(heals[0].tx, heals[0].ty);
     }
 
     // Take the crown
     let crown = state.actors.find((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Crown);
     if (crown != undefined) {
-        console.log(`Nothing to do except win`);
+        solverLog(`Nothing to do except win`);
         return getActorIndexAt(crown.tx, crown.ty);
     }
 
     // Hail mary
-    console.log(`Unable to find any safe click`);
+    solverLog(`Unable to find any safe click`);
     let unknownE = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
     unknownE.sort((a, b) => knownGameState.grid[b.ty][b.tx].survivalProbability() - knownGameState.grid[a.ty][a.tx].survivalProbability());
     if (unknownE.length > 0) {
         let e = unknownE[0];
         if (knownGameState.grid[e.ty][e.tx].survivalProbability() > 0) {
-            console.log(`Clicking dangerous unknown square ${e.ty} ${e.tx} with estimated surival probability ${knownGameState.grid[e.ty][e.tx].survivalProbability()}`);
+            solverStats.tookRisk = true;
+            solverLog(`Clicking dangerous unknown square ${e.ty} ${e.tx} with estimated surival probability ${knownGameState.grid[e.ty][e.tx].survivalProbability()}`);
             return getActorIndexAt(e.tx, e.ty);
         }
     }
 
     // Give up
-    console.log(`Every click is suicide, good game.`);
-    play("wrong");
-    return null;
+    solverLog(`Every click is suicide, good game.`);
+    return getActorIndexAt(4, Math.floor(state.gridW / 2));
 }
 
 // End of solver code
@@ -3508,14 +3583,22 @@ function updatePlaying(ctx, dt) {
         }
     }
 
-    if (clickedLeft && clickedOnBoard && freeClickOn) {
+    const performFreeClick = clickedLeft && clickedOnBoard && freeClickOn;
+    let performNextClick = state.status == GameStatus.Playing && (clickedLeft && state.autoPlayRect.contains(mousex, mousey));
+    if (solverTesting && Date.now() - lastSolverTestingAction > solverTestingCadenceMs && knownGameState.stableKnowledge()) {
+        performNextClick = true;
+        lastSolverTestingAction = Date.now();
+    }
+
+    if (performFreeClick) {
         let maybeClick = maybeGetFreeClick();
         if (maybeClick != null) {
             clickedActorIndex = maybeClick;
         }
     }
-    else if (clickedLeft && state.autoPlayRect.contains(mousex, mousey) && state.status == GameStatus.Playing) {
+    else if (performNextClick) {
         let maybeClick = maybeGetNextClick();
+        solverStats.nonfreeActions++;
         if (maybeClick != null) {
             clickedActorIndex = maybeClick;
         }
@@ -3538,6 +3621,10 @@ function updatePlaying(ctx, dt) {
         let pushed = activeActors[clickedActorIndex];
         let pushedR = actorRects[clickedActorIndex];
 
+        // to check if mine king opportunity was missed (for solver stats)
+        let mineKingWasPossible = (state.actors.find((a) => a.id == ActorId.MineKing && a.defeated == false) != undefined) && state.player.hp > 10;
+        let mineKingDefeated = false;
+
         // special case for the gnome
         if (pushed.id == ActorId.Gnome) {
             // if I have room, move away!
@@ -3555,6 +3642,7 @@ function updatePlaying(ctx, dt) {
         if (pushed.id == ActorId.Crown) {
             state.endTime = Date.now();
             state.status = GameStatus.WinScreen;
+            solverStats.computeEndStats();
 
             // stamps
             let living = 0;
@@ -3883,6 +3971,7 @@ function updatePlaying(ctx, dt) {
                                                                         }
                                                                         else
                                                                             if (pushed.id == ActorId.MineKing) {
+                                                                                mineKingDefeated = true;
                                                                                 makeSpellDisarm(pushed);
                                                                             }
                                                                             else {
@@ -3913,6 +4002,17 @@ function updatePlaying(ctx, dt) {
             else pushed.revealed = true;
             play("uncover");
         }
+        else if (pushed.id == ActorId.Wall && !knownGameState.allRevealed) {
+            solverLog(`Note: hitting wall before full clear`);
+            solverStats.earlyWallHits++;
+        }
+
+        if (mineKingWasPossible && !mineKingDefeated && state.player.hp <= 10) {
+            solverLog(`Missed opportunity to hit mine king ASAP`);
+            solverStats.mineKingOpportunitiesMissed += 1;
+        }
+
+
 
         state.lastActorTypeClicked = pushed.id;
         state.lastActorNameClicked = pushed.name;
@@ -4010,7 +4110,7 @@ function updatePlaying(ctx, dt) {
     levelupButtonR.x = heroR.x;
 
     let isLevelupButtonEnabled = state.player.hp > 0 && state.player.xp >= nextLevelXP(state.player.level) && state.status == GameStatus.Playing;
-    let tryingToLevelUp = (levelupButtonR.contains(mousex, mousey) || clickedActorIndex == SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX) && clickedLeft;
+    let tryingToLevelUp = (levelupButtonR.contains(mousex, mousey) && clickedLeft) || clickedActorIndex == SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX;
     let mustLevelup = isLevelupButtonEnabled && tryingToLevelUp;
 
     if (debugOn) {
@@ -4074,6 +4174,7 @@ function updatePlaying(ctx, dt) {
                 // else if(a.id == ActorId.Chest) a.contains(a);
             }
         }
+        solverStats.computeEndStats();
     }
     else {
         if (oldPlayerHP > 1 && state.player.hp == 1 && state.player.xp < nextLevelXP(state.player.level)) {
@@ -4175,6 +4276,9 @@ function updatePlaying(ctx, dt) {
     let resetGame = false;
     if (keysJustPressed.includes('r')) resetGame = true;
     if (clickedLeft && levelupButtonR.contains(mousex, mousey) && isRestartButtonEnabled) {
+        resetGame = true;
+    }
+    if (solverTesting && isRestartButtonEnabled) {
         resetGame = true;
     }
 
@@ -4597,6 +4701,9 @@ function updatePlaying(ctx, dt) {
     ctx.restore();
 
     if (resetGame) {
+        if (solverTesting) {
+            updateSolverTestingStats();
+        }
         newGame();
         play("restart");
     }
@@ -4931,10 +5038,13 @@ function onUpdate(phase, dt) {
             if (state.status == GameStatus.Playing || state.status == GameStatus.Dead) {
                 updatePlaying(ctx, dt);
             }
-            else
-                if (state.status == GameStatus.WinScreen) {
-                    updateWinscreen(ctx, dt);
+            else if (state.status == GameStatus.WinScreen) {
+                updateWinscreen(ctx, dt);
+                if (solverTesting && Date.now() - lastSolverTestingAction > solverTestingCadenceMs) {
+                    updateSolverTestingStats();
+                    newGame();
                 }
+            }
 
         drawFrame(ctx, stripScanlines, 0, 0, 0);
 
