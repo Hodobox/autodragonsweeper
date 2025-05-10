@@ -53,6 +53,7 @@ def ave_score(games: list[dict]) -> float:
     return score / len(games)
 
 
+print(f"When lost, on average had {ave_score(lost):.2f} score")
 print(f"When won without clear, on average had {ave_score(won_failed):.2f} score")
 
 

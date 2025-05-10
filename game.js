@@ -1808,12 +1808,20 @@ class KnownGameStateGridSquare {
         this.tx = tx;
         this.ty = ty;
         this.wallNeighborFound = false;
-        this.wasWall = false;
+        this.was = null;
         this.neighborMinesPopulated = false;
     }
 
     couldBe(actorId) {
         return this.possibleActors.find((a) => a.id == actorId) != undefined;
+    }
+
+    isOrWas(actorId) {
+        return this.was == actorId || this.knownActor() == actorId;
+    }
+
+    couldBeOrWas(actorId) {
+        return this.was == actorId || this.couldBe(actorId);
     }
 
     removePossibleActor(actorId) {
@@ -2458,14 +2466,13 @@ function updateKnownGameState() {
 
     // Walls with no wall neighbor and last remaining diagonal neighbor -> wall
     for (let a of state.actors) {
-        if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Wall && !knownGameState.grid[a.ty][a.tx].wallNeighborFound) {
-            knownGameState.grid[a.ty][a.tx].wasWall = true;
+        if (knownGameState.grid[a.ty][a.tx].isOrWas(ActorId.Wall) && !knownGameState.grid[a.ty][a.tx].wallNeighborFound) {
             let neighs = getNeighborsCross(a.tx, a.ty);
-            if (neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownActor() == ActorId.Wall || knownGameState.grid[n.ty][n.tx].wasWall).length) {
+            if (neighs.filter((n) => knownGameState.grid[n.ty][n.tx].isOrWas(ActorId.Wall)).length) {
                 knownGameState.grid[a.ty][a.tx].wallNeighborFound = true;
                 continue;
             }
-            let unknown_neighs = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == null || (!n.revealed && knownGameState.grid[n.ty][n.tx].knownPower() == 0));
+            let unknown_neighs = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].couldBe(ActorId.Wall));
 
             if (unknown_neighs.length != 1) {
                 continue;
@@ -2653,6 +2660,13 @@ function updateKnownGameState() {
                     knownGameState.grid[y][x].removePossibleActor(ActorId.Gazer);
                 }
             }
+        }
+    }
+
+    // populate .was fields
+    for (let a of state.actors) {
+        if (knownGameState.grid[a.ty][a.tx].was == null && knownGameState.grid[a.ty][a.tx].knownActor() != undefined) {
+            knownGameState.grid[a.ty][a.tx].was = knownGameState.grid[a.ty][a.tx].knownActor();
         }
     }
 
