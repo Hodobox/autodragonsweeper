@@ -24,6 +24,8 @@ let fontWinscreen;
 let nomiconWasEverRead = false;
 let soundOn = true;
 let musicOn = true;
+let freeClickOn = true;
+let powerHintsOn = true;
 let runningMusic = null;
 let runningMusicId = null;
 let musicToRun = null;
@@ -476,6 +478,24 @@ function loadSettings() {
         musicOn = musicSetting == "on";
     }
 
+    let freeClickSetting = localStorage.getItem("freeclick");
+    if (freeClickSetting == null) {
+        localStorage.setItem("freeclick", "on");
+        freeClickOn = true;
+    }
+    else {
+        freeClickOn = freeClickSetting == "on";
+    }
+
+    let powerHintsSetting = localStorage.getItem("hints");
+    if (powerHintsSetting == null) {
+        localStorage.setItem("hints", "on");
+        powerHintsOn = true;
+    }
+    else {
+        powerHintsOn = powerHintsSetting == "on";
+    }
+
     collectedStamps = [];
     for (let stampSpec of STAMP_SPEC_IDS) {
         if (localStorage.getItem(stampSpec) != null) {
@@ -488,6 +508,8 @@ function saveSettings() {
     localStorage.setItem("sound", soundOn ? "on" : "off");
     localStorage.setItem("music", musicOn ? "on" : "off");
     localStorage.setItem("nomicon", nomiconWasEverRead ? "yes" : "no");
+    localStorage.setItem("freeclick", freeClickOn ? "on" : "off");
+    localStorage.setItem("hints", powerHintsOn ? "on" : "off");
     for (let stamp of collectedStamps) {
         localStorage.setItem(stamp, "yes");
     }
@@ -2323,13 +2345,7 @@ function updateKnownGameState() {
             }
 
             knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel <= missingPower);
-
-            let vyhadzujem = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => !(a.monsterLevel >= 100 || a.monsterLevel <= missingCreaturePower));
-            if (vyhadzujem.length) {
-                console.log(`Z ${n.ty} ${n.tx} vyhadzujem ${vyhadzujem.map((a) => "" + a.monsterLevel)}`);
-            }
             knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel >= 100 || a.monsterLevel <= missingCreaturePower);
-
         }
     }
 
@@ -3046,7 +3062,7 @@ function updateBook(ctx, dt, worldR, HUDRect, clickedLeft) {
         let soundR = new Rect();
         soundR.w = 16;
         soundR.h = 16;
-        soundR.x = bookLeft.x + 20;
+        soundR.x = bookLeft.x + 10;
         soundR.y = bookLeft.bottom() - 25;
         if (clickedLeft && soundR.contains(mousex, mousey)) {
             soundOn = !soundOn;
@@ -3065,6 +3081,35 @@ function updateBook(ctx, dt, worldR, HUDRect, clickedLeft) {
             musicOn = !musicOn;
         }
         drawFrame(ctx, stripIcons, musicOn ? 151 : 150, musicR.centerx(), musicR.centery());
+
+        let freeClickR = new Rect();
+        freeClickR.w = 30;
+        freeClickR.h = 30;
+        freeClickR.x = musicR.right() + 10;
+        freeClickR.y = bookLeft.bottom() - 36;
+        drawFrame(ctx, stripButtons, 0, freeClickR.centerx(), freeClickR.centery());
+        drawFrame(ctx, stripIcons, 24, freeClickR.centerx() + 4, freeClickR.centery());
+        drawFrame(ctx, stripIcons, 8, freeClickR.right() - 7, freeClickR.y + 6);
+        fontUIBlue.drawLine(ctx, "0", freeClickR.centerx() + 4, freeClickR.centery() + 3, FONT_TOP);
+        if (clickedLeft && freeClickR.contains(mousex, mousey)) {
+            freeClickOn = !freeClickOn;
+        }
+        if (freeClickOn) {
+            drawFrame(ctx, stripIcons, 34, freeClickR.centerx() - 10, freeClickR.centery());
+        }
+
+        let powerHintsR = new Rect();
+        powerHintsR.w = 30;
+        powerHintsR.h = 30;
+        powerHintsR.x = freeClickR.right() + 10;
+        powerHintsR.y = bookLeft.bottom() - 36;
+        drawFrame(ctx, stripButtons, 0, powerHintsR.centerx(), powerHintsR.centery());
+        if (clickedLeft && powerHintsR.contains(mousex, mousey)) {
+            powerHintsOn = !powerHintsOn;
+        }
+        if (powerHintsOn) {
+            fontUIBlue.drawLine(ctx, "5", powerHintsR.centerx(), powerHintsR.centery(), FONT_CENTER | FONT_VCENTER);
+        }
 
         let offy = 0;
         for (let line of lines) {
@@ -3463,7 +3508,7 @@ function updatePlaying(ctx, dt) {
         }
     }
 
-    if (clickedLeft && clickedOnBoard) {
+    if (clickedLeft && clickedOnBoard && freeClickOn) {
         let maybeClick = maybeGetFreeClick();
         if (maybeClick != null) {
             clickedActorIndex = maybeClick;
@@ -4313,38 +4358,40 @@ function updatePlaying(ctx, dt) {
     }
 
     // knownGameState hints - show tiles whose power we know
-    for (let i = 0; i < state.gridH; i++) {
-        for (let k = 0; k < state.gridW; k++) {
+    if (powerHintsOn) {
+        for (let i = 0; i < state.gridH; i++) {
+            for (let k = 0; k < state.gridW; k++) {
 
-            let actor = getActorAt(k, i);
-            if (actor.revealed) {
-                if (!looksLikeClosedChest(actor)) {
+                let actor = getActorAt(k, i);
+                if (actor.revealed) {
+                    if (!looksLikeClosedChest(actor)) {
+                        continue;
+                    }
+                    if (!knownGameState.couldBeMimic(k, i)) {
+                        continue;
+                    }
+                }
+
+                const knownPower = knownGameState.grid[i][k].knownPower();
+
+                if (knownPower != null) {
+                    const r = getRectForTile(k, i);
+                    fontUIBlue.drawLine(ctx, "" + knownPower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
                     continue;
                 }
-                if (!knownGameState.couldBeMimic(k, i)) {
-                    continue;
-                }
-            }
 
-            const knownPower = knownGameState.grid[i][k].knownPower();
-
-            if (knownPower != null) {
-                const r = getRectForTile(k, i);
-                fontUIBlue.drawLine(ctx, "" + knownPower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
-                continue;
-            }
-
-            // show worst-case scenario if its not a mine (and best case, if >0)
-            const worstCasePower = knownGameState.grid[i][k].worstCasePower();
-            if (worstCasePower != 100) {
-                const bestCasePower = knownGameState.grid[i][k].bestCasePower();
-                const r = getRectForTile(k, i);
-                if (bestCasePower == 0) {
-                    fontUIRed.drawLine(ctx, "" + worstCasePower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
-                }
-                else {
-                    fontUIRed.drawLine(ctx, "" + bestCasePower + ":" + worstCasePower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
-                    //fontUIRed.drawLine(ctx, "" + bestCasePower, r.centerx() - 6, r.centery() + 5, FONT_CENTER | FONT_VCENTER);
+                // show worst-case scenario if its not a mine (and best case, if >0)
+                const worstCasePower = knownGameState.grid[i][k].worstCasePower();
+                if (worstCasePower != 100) {
+                    const bestCasePower = knownGameState.grid[i][k].bestCasePower();
+                    const r = getRectForTile(k, i);
+                    if (bestCasePower == 0) {
+                        fontUIRed.drawLine(ctx, "" + worstCasePower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
+                    }
+                    else {
+                        fontUIRed.drawLine(ctx, "" + bestCasePower + ":" + worstCasePower, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
+                        //fontUIRed.drawLine(ctx, "" + bestCasePower, r.centerx() - 6, r.centery() + 5, FONT_CENTER | FONT_VCENTER);
+                    }
                 }
             }
         }
