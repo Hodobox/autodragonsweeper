@@ -1809,6 +1809,7 @@ class KnownGameStateGridSquare {
         this.ty = ty;
         this.wallNeighborFound = false;
         this.was = null;
+        this.wasWhatWeThought = false;
         this.neighborMinesPopulated = false;
     }
 
@@ -1833,7 +1834,7 @@ class KnownGameStateGridSquare {
             return null;
         }
         if (this.possibleActors.length == 0) {
-            solverLog(`ERROR: empty possible actors list at ${this.ty}, ${this.tx}`);
+            console.error(`ERROR: empty possible actors list at ${this.ty}, ${this.tx}`);
         }
         return this.possibleActors[0].monsterLevel;
     }
@@ -1881,7 +1882,7 @@ function constructInitialGrid() {
     }
 
     // Could be anywhere
-    for (let actorId of [ActorId.Bat, ActorId.Chest, ActorId.Empty, ActorId.Gargoyle, ActorId.Gazer, ActorId.Mimic, ActorId.Mine, ActorId.Minotaur, ActorId.Rat, ActorId.RatKing, ActorId.Skeleton, ActorId.Slime, ActorId.Wall]) {
+    for (let actorId of [ActorId.Bat, ActorId.Chest, ActorId.Empty, ActorId.Gnome, ActorId.Medikit, ActorId.Gargoyle, ActorId.Gazer, ActorId.Mimic, ActorId.Mine, ActorId.Minotaur, ActorId.Rat, ActorId.RatKing, ActorId.Skeleton, ActorId.Slime, ActorId.Wall]) {
         for (let i = 0; i < state.gridH; i++) {
             for (let k = 0; k < state.gridW; k++) {
                 grid[i][k].possibleActors.push(makeActor(actorId));
@@ -1962,6 +1963,7 @@ class KnownGameState {
         this.mineKingFound = false;
         this.ratKingFound = false;
         this.wizardFound = false;
+        this.minesDisarmed = false;
         this.bigSlimes = [];
         // How many tiles we can have a wizard in.
         // Used as optimization to not clear over and over.
@@ -1990,6 +1992,7 @@ class KnownGameState {
     }
 
     disarmMines() {
+        this.minesDisarmed = true;
         solverLog("Disarming mines");
         for (let i = 0; i < state.gridH; ++i) {
             for (let k = 0; k < state.gridW; ++k) {
@@ -2098,7 +2101,7 @@ class KnownGameState {
         intersectionWizards = intersectionWizards.filter((w) => isEdge(w.tx, w.ty) && knownGameState.grid[w.ty][w.tx].couldBe(ActorId.Wizard));
 
         if (intersectionWizards.length == 0) {
-            solverLog(`ERROR: apparently there is no cross-section of slime neighbors that can be wizard.`);
+            console.error(`ERROR: apparently there is no cross-section of slime neighbors that can be wizard.`);
         }
         else if (intersectionWizards.length == 1) {
             const ty = intersectionWizards[0].ty;
@@ -2239,6 +2242,16 @@ function updateKnownGameState() {
             continue;
         }
 
+        if (!knownGameState.grid[a.ty][a.tx].wasWhatWeThought) {
+            if (!knownGameState.grid[a.ty][a.tx].couldBe(a.id)) {
+                let okToBeWrong = (a.id == ActorId.Orb || a.id == ActorId.SpellMakeOrb) || (a.id == ActorId.Mine && knownGameState.minesDisarmed);
+                if (!okToBeWrong) {
+                    console.error(`ERROR: though ${a.ty} ${a.tx} could be ${knownGameState.grid[a.ty][a.tx].possibleActors.map((a) => a.id)}, but it is ${a.id}`);
+                }
+            }
+            knownGameState.grid[a.ty][a.tx].wasWhatWeThought = true;
+        }
+
         if (a.id == ActorId.DragonEgg) {
             knownGameState.dragonEggFound = true;
         }
@@ -2256,13 +2269,13 @@ function updateKnownGameState() {
         if (knownGameState.mimicFound) {
             if (knownGameState.mimicFound[0] == a.ty && knownGameState.mimicFound[1] == a.tx) {
                 if (a.id != ActorId.Mimic) {
-                    solverLog(`ERROR: at ${a.ty} ${a.tx} should be mimic, but there is ${a.id}`);
+                    console.error(`ERROR: at ${a.ty} ${a.tx} should be mimic, but there is ${a.id}`);
                 }
                 knownGameState.grid[a.ty][a.tx].possibleActors = [a];
             }
             else {
                 if (a.id == ActorId.Mimic) {
-                    solverLog(`ERROR: believe to have found mimic at ${knownGameState.mimicFound}, but he is at ${a.ty} ${a.tx}`);
+                    console.error(`ERROR: believe to have found mimic at ${knownGameState.mimicFound}, but he is at ${a.ty} ${a.tx}`);
                 }
                 knownGameState.grid[a.ty][a.tx].possibleActors = [a];
             }
@@ -2304,8 +2317,8 @@ function updateKnownGameState() {
 
         for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
             if (!n.revealed && knownGameState.grid[n.ty][n.tx].knownPower() == null) {
-                // must shove in things with power 0, so we don't make bad inferences about it e.g. find bad wall neighbor
-                knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Empty), makeActor(ActorId.Wall), makeActor(ActorId.Chest), makeActor(ActorId.Medikit), makeActor(ActorId.DragonEgg)];
+                // must shove in things with power 0, so we don't make bad inferences about it e.g. find bad wall neighbor, think we can't have dragon egg
+                knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Empty), makeActor(ActorId.Wall), makeActor(ActorId.Chest), makeActor(ActorId.Medikit), makeActor(ActorId.DragonEgg), makeActor(ActorId.Gnome)];
             }
         }
     }
@@ -2640,7 +2653,7 @@ function updateKnownGameState() {
             solverLog(`Gazer pinpointed at ${g.ty} ${g.tx} - only possibility to show ? at ${a.ty} ${a.tx}`);
             knownGameState.grid[g.ty][g.tx].possibleActors = [makeActor(ActorId.Gazer)]
         } else if (gazers.length == 0) {
-            solverLog(`ERROR: ? without possible gazer in range: ${a.ty} ${a.tx}`);
+            console.error(`ERROR: ? without possible gazer in range: ${a.ty} ${a.tx}`);
         }
     }
 
