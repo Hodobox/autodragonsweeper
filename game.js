@@ -2304,8 +2304,8 @@ function updateKnownGameState() {
 
         for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
             if (!n.revealed && knownGameState.grid[n.ty][n.tx].knownPower() == null) {
-                // might not be 'Empty', but Empty is a free click, so we will reveal it
-                knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Empty)];
+                // must shove in things with power 0, so we don't make bad inferences about it e.g. find bad wall neighbor
+                knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Empty), makeActor(ActorId.Wall), makeActor(ActorId.Chest), makeActor(ActorId.Medikit), makeActor(ActorId.DragonEgg)];
             }
         }
     }
@@ -2578,10 +2578,9 @@ function updateKnownGameState() {
     // If we haven't found the dragon's egg, and there is only one adjacent square next to the dragon left, that's it.
     if (!knownGameState.dragonEggFound) {
         let neighs = getNeighborsWithDiagonals(Math.floor(state.gridW / 2), 4);
-        let zeros = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == 0 && !n.revealed);
-        let unknown = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].knownPower() == null);
-        if (zeros.length == 0 && unknown.length == 1) {
-            let n = unknown[0];
+        let canEgg = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].couldBe(ActorId.DragonEgg));
+        if (canEgg.length == 1) {
+            let n = canEgg[0];
             solverLog(`Found the dragon egg at ${n.ty} ${n.tx}`);
             knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.DragonEgg)];
         }

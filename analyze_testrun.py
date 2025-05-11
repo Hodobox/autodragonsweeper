@@ -79,3 +79,5 @@ most_hp_occured: int = len(
     [g for g in cleared if g["endStats"]["hpLeftOver"] == most_hp_left]
 )
 print(f"Most hp left when cleared: {most_hp_left} (happened {most_hp_occured} times)")
+
+print(f"Lost without risk: {len([g for g in lost if not g['tookRisk']])}")
