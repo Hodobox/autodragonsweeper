@@ -8,12 +8,12 @@ if len(sys.argv) < 2:
 tetsrun_file: str = sys.argv[1]
 
 with open(tetsrun_file, "r") as f:
-    data = json.load(f)
+    games = json.load(f)
 
-n: int = len(data)
+n: int = len(games)
 
-lost = [g for g in data if not g["endStats"]["won"]]
-won = [g for g in data if g["endStats"]["won"]]
+lost = [g for g in games if not g["endStats"]["won"]]
+won = [g for g in games if g["endStats"]["won"]]
 won_failed = [g for g in won if not g["endStats"]["cleared"]]
 cleared = [g for g in won if g["endStats"]["cleared"]]
 print(
@@ -81,3 +81,22 @@ most_hp_occured: int = len(
 print(f"Most hp left when cleared: {most_hp_left} (happened {most_hp_occured} times)")
 
 print(f"Lost without risk: {len([g for g in lost if not g['tookRisk']])}")
+
+
+def get_feature_occ_and_ave(games: list[dict], f: str) -> tuple[int, float]:
+    occ: int = sum([g.get("features", {}).get(f, 0) for g in games])
+    return occ, occ / len(games)
+
+
+print(f"-- Features --")
+features: dict[str, float] = games[0].get("features", {})
+for f in features.keys():
+    print(f"{f}")
+    for gs, t in [
+        (won, "won"),
+        (cleared, "cleared"),
+        (won_failed, "won but no clear"),
+        (lost, "lost"),
+    ]:
+        occ, ave = get_feature_occ_and_ave(gs, f)
+        print(f"\t{occ} times (average {ave:.3f}) in {t} games")

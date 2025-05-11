@@ -1964,7 +1964,6 @@ class KnownGameState {
         this.ratKingFound = false;
         this.wizardFound = false;
         this.minesDisarmed = false;
-        this.bigSlimes = [];
         // How many tiles we can have a wizard in.
         // Used as optimization to not clear over and over.
         this.wizardClearedExcept = 1000;
@@ -2074,7 +2073,6 @@ class KnownGameState {
             if (!n.revealed && this.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
                 solverLog(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
                 this.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
-                this.bigSlimes.push([n.ty, n.tx]);
             }
         }
     }
@@ -2083,12 +2081,17 @@ class KnownGameState {
     // Honestly, it's a bit jank, and leaves a lot of room for improvement. But in most games, this should do ok.
     // Struggles more when the formation is in a corner.
     huntForWizard() {
+        let bigSlimes = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].isOrWas(ActorId.BigSlime));
+
+        if (bigSlimes.length == 0) {
+            return;
+        }
 
         // wizard needs to be neighbor of all slimes
         let intersectionWizards = undefined;
-        for (let s of this.bigSlimes) {
-            const sx = s[1];
-            const sy = s[0];
+        for (let s of bigSlimes) {
+            const sx = s.tx
+            const sy = s.ty
 
             if (intersectionWizards == undefined) {
                 intersectionWizards = getNeighborsWithDiagonals(sx, sy);
@@ -2114,20 +2117,20 @@ class KnownGameState {
             this.clearWizard(intersectionWizards.map((a) => [a.ty, a.tx]));
         }
 
-        let edgeSlimes = this.bigSlimes.filter((s) => isEdge(s[1], s[0]));
-        let adjSlimes = this.bigSlimes.filter((s) => isCloseToEdge(s[1], s[0]) && !isEdge(s[1], s[0]));
+        let edgeSlimes = bigSlimes.filter((s) => isEdge(s.tx, s.ty));
+        let adjSlimes = bigSlimes.filter((s) => isCloseToEdge(s.tx, s.ty) && !isEdge(s.tx, s.ty));
 
         // two edge slimes - covered by intersection check
 
         if (edgeSlimes.length == 1) {
-            const sy = edgeSlimes[0][0];
-            const sx = edgeSlimes[0][1];
+            const sy = edgeSlimes[0].ty;
+            const sx = edgeSlimes[0].tx;
 
             // problem when wizard is in corner and this could be an adj-slime.
             if (sx != 1 && sx != state.gridW - 2 && sy != 1 && sy != state.gridH - 2) {
 
                 let plausibleTwinSquares = state.actors.filter((a) => isEdge(a.tx, a.ty) && Math.abs(a.tx - sx) + Math.abs(a.ty - sy) == 2);
-                let possibleTwins = plausibleTwinSquares.filter((a) => knownGameState.grid[a.ty][a.tx].couldBe(ActorId.BigSlime));
+                let possibleTwins = plausibleTwinSquares.filter((a) => knownGameState.grid[a.ty][a.tx].couldBeOrWas(ActorId.BigSlime));
 
                 if (possibleTwins.length == 1) {
                     // wizard must be between the two slimes
@@ -2137,6 +2140,7 @@ class KnownGameState {
                     const ty = Math.floor((sy + twiny) / 2);
                     solverLog(`Edge slime at ${sy} ${sx} has only one candidate twin ${twiny} ${twinx}`);
                     this.foundWizard(tx, ty);
+                    solverStats.features.edgeSlimeDetections++;
                     return;
                 }
 
@@ -2148,6 +2152,7 @@ class KnownGameState {
                     const tx = possibleWizards[0].tx;
                     solverLog(`Edge slime at ${sy} ${sx} has only one possible wizard ${ty} ${tx}`);
                     this.foundWizard(tx, ty);
+                    solverStats.features.edgeSlimeDetections++;
                     return;
                 }
                 else {
@@ -2211,6 +2216,12 @@ function computeEndOfGameStats() {
     return stats;
 }
 
+class SolverFeatures {
+    constructor() {
+        this.edgeSlimeDetections = 0;
+    }
+}
+
 class SolverStats {
     constructor() {
         this.endStats = new EndOfGameStats();
@@ -2219,6 +2230,7 @@ class SolverStats {
         this.nonfreeActions = 0;
         this.mineKingOpportunitiesMissed = 0;
         this.earlyWallHits = 0;
+        this.features = new SolverFeatures();
     }
 
     computeEndStats() {
@@ -2626,22 +2638,11 @@ function updateKnownGameState() {
                 if (!n.revealed && knownGameState.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
                     solverLog(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
                     knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
-                    knownGameState.bigSlimes.push([n.ty, n.tx]);
                 }
             }
         }
         else {
-            let slimes = possible.filter((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.BigSlime);
-            for (slime of slimes) {
-                if (knownGameState.bigSlimes.find((b) => b[0] == slime.ty && b[1] == slime.tx) == undefined) {
-                    knownGameState.bigSlimes.push([slime.ty, slime.tx]);
-                }
-            }
-
-            if (knownGameState.bigSlimes.length) {
-                knownGameState.huntForWizard();
-            }
-
+            knownGameState.huntForWizard();
         }
     }
 
