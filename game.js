@@ -1778,6 +1778,11 @@ function solverLog(msg) {
     }
 }
 
+function solverLogError(msg) {
+    console.error(msg);
+    solverTesting = false;
+}
+
 function isHiddenByGazer(actor) {
     return (state.actors.find(b => b.id == ActorId.Gazer && !b.defeated && distance(b.tx, b.ty, actor.tx, actor.ty) <= 2) != undefined);
 }
@@ -1834,7 +1839,7 @@ class KnownGameStateGridSquare {
             return null;
         }
         if (this.possibleActors.length == 0) {
-            console.error(`ERROR: empty possible actors list at ${this.ty}, ${this.tx}`);
+            solverLogError(`ERROR: empty possible actors list at ${this.ty}, ${this.tx}`);
         }
         return this.possibleActors[0].monsterLevel;
     }
@@ -2104,7 +2109,7 @@ class KnownGameState {
         intersectionWizards = intersectionWizards.filter((w) => isEdge(w.tx, w.ty) && knownGameState.grid[w.ty][w.tx].couldBe(ActorId.Wizard));
 
         if (intersectionWizards.length == 0) {
-            console.error(`ERROR: apparently there is no cross-section of slime neighbors that can be wizard.`);
+            solverLogError(`ERROR: apparently there is no cross-section of slime neighbors that can be wizard.`);
         }
         else if (intersectionWizards.length == 1) {
             const ty = intersectionWizards[0].ty;
@@ -2258,6 +2263,7 @@ class SolverFeatures {
     constructor() {
         this.edgeSlimeDetections = 0;
         this.adjSlimeDetections = 0;
+        this.gargoylesSpotted = 0;
     }
 }
 
@@ -2297,7 +2303,7 @@ function updateKnownGameState() {
             if (!knownGameState.grid[a.ty][a.tx].couldBe(a.id)) {
                 let okToBeWrong = (a.id == ActorId.Orb || a.id == ActorId.SpellMakeOrb) || (a.id == ActorId.Mine && knownGameState.minesDisarmed);
                 if (!okToBeWrong) {
-                    console.error(`ERROR: though ${a.ty} ${a.tx} could be ${knownGameState.grid[a.ty][a.tx].possibleActors.map((a) => a.id)}, but it is ${a.id}`);
+                    solverLogError(`ERROR: thought ${a.ty} ${a.tx} could be ${knownGameState.grid[a.ty][a.tx].possibleActors.map((a) => a.id)}, but it is ${a.id}`);
                 }
             }
             knownGameState.grid[a.ty][a.tx].wasWhatWeThought = true;
@@ -2320,13 +2326,13 @@ function updateKnownGameState() {
         if (knownGameState.mimicFound) {
             if (knownGameState.mimicFound[0] == a.ty && knownGameState.mimicFound[1] == a.tx) {
                 if (a.id != ActorId.Mimic) {
-                    console.error(`ERROR: at ${a.ty} ${a.tx} should be mimic, but there is ${a.id}`);
+                    solverLogError(`ERROR: at ${a.ty} ${a.tx} should be mimic, but there is ${a.id}`);
                 }
                 knownGameState.grid[a.ty][a.tx].possibleActors = [a];
             }
             else {
                 if (a.id == ActorId.Mimic) {
-                    console.error(`ERROR: believe to have found mimic at ${knownGameState.mimicFound}, but he is at ${a.ty} ${a.tx}`);
+                    solverLogError(`ERROR: believe to have found mimic at ${knownGameState.mimicFound}, but he is at ${a.ty} ${a.tx}`);
                 }
                 knownGameState.grid[a.ty][a.tx].possibleActors = [a];
             }
@@ -2452,11 +2458,24 @@ function updateKnownGameState() {
 
     // Gargoyles face each other. We can find the twin if we see one.
     for (let a of state.actors) {
-        if (a.revealed && a.id == ActorId.Gargoyle) {
+        if (a.id != ActorId.Gargoyle) { continue; }
+        if (a.revealed) {
             const twinx = a.tx + [0, 1, 0, -1][a.facingDirection];
             const twiny = a.ty + [-1, 0, 1, 0][a.facingDirection];
             if (!getActorAt(twinx, twiny).revealed) {
                 knownGameState.grid[twiny][twinx].possibleActors = [makeActor(ActorId.Gargoyle)];
+            }
+        }
+        else if (knownGameState.grid[a.ty][a.tx].isOrWas(ActorId.Gargoyle)) {
+            // Even if we don't see it, there might only be one option
+            let twins = getNeighborsCross(a.tx, a.ty).filter((a) => knownGameState.grid[a.ty][a.tx].couldBeOrWas(ActorId.Gargoyle));
+            if (twins.length == 1) {
+                let twin = twins[0];
+                if (knownGameState.grid[twin.ty][twin.tx].knownActor() == null) {
+                    solverLog(`Gargoyle at ${a.ty} ${a.tx} has only one twin option left: ${twin.ty} ${twin.tx}`);
+                    knownGameState.grid[twin.ty][twin.tx].possibleActors = [makeActor(ActorId.Gargoyle)];
+                    solverStats.features.gargoylesSpotted++;
+                }
             }
         }
     }
@@ -2693,7 +2712,7 @@ function updateKnownGameState() {
             solverLog(`Gazer pinpointed at ${g.ty} ${g.tx} - only possibility to show ? at ${a.ty} ${a.tx}`);
             knownGameState.grid[g.ty][g.tx].possibleActors = [makeActor(ActorId.Gazer)]
         } else if (gazers.length == 0) {
-            console.error(`ERROR: ? without possible gazer in range: ${a.ty} ${a.tx}`);
+            solverLogError(`ERROR: ? without possible gazer in range: ${a.ty} ${a.tx}`);
         }
     }
 
@@ -4338,6 +4357,9 @@ function updatePlaying(ctx, dt) {
         play("jorge", 1);
     }
 
+    if (clickedActorIndex >= 0 || knownGameState.lastUpdateWasMeaningful) {
+        updateKnownGameState();
+    }
 
     let resetGame = false;
     if (keysJustPressed.includes('r')) resetGame = true;
@@ -4429,10 +4451,6 @@ function updatePlaying(ctx, dt) {
         state.screenShakeTimer -= dt;
         screenx = rnd(-2, 2);
         screeny = rnd(-1, 1);
-    }
-
-    if (clickedActorIndex >= 0 || knownGameState.lastUpdateWasMeaningful) {
-        updateKnownGameState();
     }
 
     // rendering
