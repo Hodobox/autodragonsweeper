@@ -11,7 +11,7 @@ let solverTesting = false;
 let lastSolverTestingAction = Date.now();
 /** @type {SolverStats[]} */
 let solverTestingStats = [];
-let solverTestingCadenceMs = 100;
+let solverTestingCadenceMs = 50;
 let solverTestingNumGames = 100;
 /** @type {BitmapFont} */
 let fontUINumbers;
@@ -2120,8 +2120,6 @@ class KnownGameState {
         let edgeSlimes = bigSlimes.filter((s) => isEdge(s.tx, s.ty));
         let adjSlimes = bigSlimes.filter((s) => isCloseToEdge(s.tx, s.ty) && !isEdge(s.tx, s.ty));
 
-        // two edge slimes - covered by intersection check
-
         if (edgeSlimes.length == 1) {
             const sy = edgeSlimes[0].ty;
             const sx = edgeSlimes[0].tx;
@@ -2162,9 +2160,49 @@ class KnownGameState {
             }
         }
 
-        // three adj slimes - covered by intersection check
+        for (let s of adjSlimes) {
+            let neiAdj = getNeighborsCross(s.tx, s.ty).filter((a) => !isEdge(a.tx, a.ty) && isCloseToEdge(a.tx, a.ty));
+            let neiAdjSlimes = neiAdj.filter((a) => knownGameState.grid[a.ty][a.tx].couldBeOrWas(ActorId.BigSlime));
+            if (neiAdjSlimes.length == 1) {
+                let n = neiAdjSlimes[0];
+                if (!n.revealed && knownGameState.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
+                    solverLog(`Non-edge slime ${s.ty} ${s.tx} can only have non-edge slime neighbor on ${n.ty} ${n.tx}`);
+                    solverStats.features.adjSlimeDetections++;
+                    knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
+                }
+                let dx = n.tx - s.tx;
+                let dy = n.ty - s.ty;
 
-        // two adj slimes that are not neighbors - covered by intersection check
+                let nnx = n.tx + dx;
+                let nny = n.ty + dy;
+
+                if ((s.tx != 1 && s.tx != state.gridW - 2) || (s.ty != 1 && s.ty != state.gridH - 2)) {
+                    if (!getActorAt(nnx, nny).revealed && knownGameState.grid[nny][nnx].knownActor() != ActorId.BigSlime) {
+
+                        solverLog(`Non-edge non-corner slime ${s.ty} ${s.tx} can only have slime step-neighbor on ${nny} ${nnx}`);
+                        solverStats.features.adjSlimeDetections++;
+                        knownGameState.grid[nny][nnx].possibleActors = [makeActor(ActorId.BigSlime)];
+                    }
+                }
+                else { // corner adj slime could be the middle one
+                    let onx = n.tx - 2 * dx;
+                    let ony = n.ty - 2 * dy
+
+                    let can_nn = knownGameState.grid[nny][nnx].couldBeOrWas(ActorId.BigSlime);
+                    let can_on = knownGameState.grid[ony][onx].couldBeOrWas(ActorId.BigSlime);
+
+                    if (can_nn ^ can_on) {
+                        let x = can_nn ? nnx : onx;
+                        let y = can_nn ? nny : ony;
+                        if (!getActorAt(x, y).revealed && knownGameState.grid[y][x].knownActor() != ActorId.BigSlime) {
+                            solverLog(`Non-edge corner slime ${s.ty} ${s.tx} will have other neighbor ${y} ${x}, because edge neighbor is ${can_on} and step-neighbor is ${can_nn}`);
+                            solverStats.features.adjSlimeDetections++;
+                            knownGameState.grid[y][x].possibleActors = [makeActor(ActorId.BigSlime)];
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Tries to guess where the gazer is
@@ -2219,6 +2257,7 @@ function computeEndOfGameStats() {
 class SolverFeatures {
     constructor() {
         this.edgeSlimeDetections = 0;
+        this.adjSlimeDetections = 0;
     }
 }
 
