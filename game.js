@@ -2241,6 +2241,7 @@ class SolverFeatures {
         this.minotaursSpottingChests = 0;
         this.chestsSpottingMinotaurs = 0;
         this.mimicsFoundByMinotaurs = 0;
+        this.deducedOddOneOut = 0;
     }
 }
 
@@ -2425,7 +2426,7 @@ function updateKnownGameState() {
             if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Giant) {
                 solverLog(`Found lover at ${a.ty}, ${a.tx}`);
                 const other_x = state.gridW - a.tx - 1;
-                solverLog(`So other lover is at ${a.ty}, ${a.tx}`);
+                solverLog(`So other lover is at ${a.ty}, ${other_x}`);
                 knownGameState.loversFound = true;
 
                 knownGameState.grid[a.ty][other_x].possibleActors = [makeActor(ActorId.Giant)];
@@ -2741,6 +2742,54 @@ function updateKnownGameState() {
                 knownGameState.grid[chest[0].ty][chest[0].tx].possibleActors = [makeActor(ActorId.Chest)];
                 solverStats.minotaursSpottingChests++;
             }
+        }
+    }
+
+    // if two neighboring numbers have all squares in common but one, we can deduce that one
+    let vis = Array(state.gridH).fill().map(() => []), known = Array(state.gridH).fill().map(() => []), unknown = Array(state.gridH).fill().map(() => []);
+    let missing = Array(state.gridH).fill().map(() => new Array(state.gridW).fill().map(() => new Set()));
+    function encodeForSet(tx, ty) { return ty * state.gridW + tx; }
+    function decodeForSet(i) { return [Math.floor(i / state.gridW), i % state.gridW]; }
+    for (let a of state.actors) {
+        vis[a.ty][a.tx] = getVisibleAttackNumber(a);
+        known[a.ty][a.tx] = 0;
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            let nPower = knownGameState.grid[n.ty][n.tx].knownPower();
+            if (nPower != null) {
+                known[a.ty][a.tx] += nPower;
+            }
+            else {
+                missing[a.ty][a.tx].add(encodeForSet(n.tx, n.ty));
+            }
+        }
+        unknown[a.ty][a.tx] = vis[a.ty][a.tx] - known[a.ty][a.tx];
+    }
+
+    for (let a of state.actors) {
+        if (vis[a.ty][a.tx] == null || unknown[a.ty][a.tx] == 0 || missing[a.ty][a.tx].size == 1) {
+            continue;
+        }
+
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            if (vis[n.ty][n.tx] == null || unknown[n.ty][n.tx] == 0 || missing[n.ty][n.tx].size == 1 || encodeForSet(a.tx, a.ty) > encodeForSet(n.tx, n.ty)) {
+                continue;
+            }
+
+            let oddOneOut = missing[a.ty][a.tx].symmetricDifference(missing[n.ty][n.tx]);
+            if (oddOneOut.size != 1) {
+                continue;
+            }
+
+            let deduce = oddOneOut.values().next().value;
+            let yx = decodeForSet(deduce);
+
+            let unknownIntersectionPower = missing[a.ty][a.tx].has(deduce) ? (vis[n.ty][n.tx] - known[n.ty][n.tx]) : (vis[a.ty][a.tx] - known[a.ty][a.tx]);
+            let missingPower = missing[a.ty][a.tx].has(deduce) ? unknown[a.ty][a.tx] : unknown[n.ty][n.tx];
+            let deducedPower = missingPower - unknownIntersectionPower;
+
+            solverLog(`${a.ty} ${a.tx} and ${n.ty} ${n.tx} share all unknown squares apart from ${yx[0]} ${yx[1]}, shared power is ${unknownIntersectionPower}, and since in total they are ${missingPower} it must be ${deducedPower}`);
+            knownGameState.grid[yx[0]][yx[1]].possibleActors = knownGameState.grid[yx[0]][yx[1]].possibleActors.filter((a) => a.monsterLevel == deducedPower);
+            solverStats.features.deducedOddOneOut++;
         }
     }
 
