@@ -1816,6 +1816,7 @@ class KnownGameStateGridSquare {
         this.was = null;
         this.wasWhatWeThought = false;
         this.neighborMinesPopulated = false;
+        this.lookedLikeClosedChest = false;
     }
 
     couldBe(actorId) {
@@ -2012,46 +2013,19 @@ class KnownGameState {
     // Assumes chest-like object is revealed at tx,ty
     couldBeChest(tx, ty) {
         // Dumb impl, true unless we know the mimic is here
-        if (this.MimicFound) {
+        if (this.mimicFound) {
             return this.mimicFound[0] != ty || this.mimicFound[1] != tx;
         }
-        return true;
+        return this.grid[ty][tx].couldBe(ActorId.Chest);
     }
 
     // Assumes chest-like object is revealed at tx,ty
     couldBeMimic(tx, ty) {
-        // Dumb impl, true if we can fit a power 11 inside
+        // Dumb impl
         if (this.mimicFound) {
             return this.mimicFound[0] == ty && this.mimicFound[1] == tx;
         }
-
-        // For each neighbor that shows a number
-        for (let n of getNeighborsWithDiagonals(tx, ty)) {
-            const number = getVisibleAttackNumber(n);
-            if (number == null) {
-                continue;
-            }
-
-            // Sum up all known powers of its neighbors
-            let knownNumber = 0;
-            for (let nn of getNeighborsWithDiagonals(n.tx, n.ty)) {
-                if (nn.tx == tx && nn.ty == ty) {
-                    continue;
-                }
-
-                const knownPower = this.grid[nn.ty][nn.tx].knownPower();
-                if (knownPower != null) {
-                    knownNumber += knownPower;
-                }
-            }
-
-            if ((number % 100) - (knownNumber % 100) < 11) {
-                solverLog(`No mimic at ${ty} ${tx} because ${n.ty} ${n.tx} shows ${number} and sees ${knownNumber}`);
-                return false;
-            }
-        }
-
-        return true;
+        return this.grid[ty][tx].couldBe(ActorId.Mimic);
     }
 
     clearWizard(except) {
@@ -2264,8 +2238,8 @@ class SolverFeatures {
         this.edgeSlimeDetections = 0;
         this.adjSlimeDetections = 0;
         this.gargoylesSpotted = 0;
-        // this.minotaursSpottingChests = 0;
-        // this.chestsSpottingMinotaurs = 0;
+        this.minotaursSpottingChests = 0;
+        this.chestsSpottingMinotaurs = 0;
         this.mimicsFoundByMinotaurs = 0;
     }
 }
@@ -2302,7 +2276,7 @@ function updateKnownGameState() {
             continue;
         }
 
-        if (!knownGameState.grid[a.ty][a.tx].wasWhatWeThought) {
+        if (!knownGameState.grid[a.ty][a.tx].wasWhatWeThought && knownGameState.grid[a.ty][a.tx].knownActor() != null) {
             if (!knownGameState.grid[a.ty][a.tx].couldBe(a.id)) {
                 let okToBeWrong = (a.id == ActorId.Orb || a.id == ActorId.SpellMakeOrb) || (a.id == ActorId.Mine && knownGameState.minesDisarmed);
                 if (!okToBeWrong) {
@@ -2325,6 +2299,8 @@ function updateKnownGameState() {
             continue;
         }
 
+        knownGameState.grid[a.ty][a.tx].lookedLikeClosedChest = true;
+
         // if we know where the mimic is, we know if this is a mimic or chest
         if (knownGameState.mimicFound) {
             if (knownGameState.mimicFound[0] == a.ty && knownGameState.mimicFound[1] == a.tx) {
@@ -2341,12 +2317,12 @@ function updateKnownGameState() {
             }
         }
         else {
-            knownGameState.grid[a.ty][a.tx].possibleActors = [];
-            if (knownGameState.couldBeChest(a.tx, a.ty)) {
-                knownGameState.grid[a.ty][a.tx].possibleActors.push(makeActor(ActorId.Chest));
+            knownGameState.grid[a.ty][a.tx].possibleActors = knownGameState.grid[a.ty][a.tx].possibleActors.filter((a) => a.id == ActorId.Chest || a.id == ActorId.Mimic);
+            if (!knownGameState.couldBeChest(a.tx, a.ty)) {
+                knownGameState.grid[a.ty][a.tx].removePossibleActor(ActorId.Chest);
             }
-            if (knownGameState.couldBeMimic(a.tx, a.ty))
-                knownGameState.grid[a.ty][a.tx].possibleActors.push(makeActor(ActorId.Mimic));
+            if (!knownGameState.couldBeMimic(a.tx, a.ty))
+                knownGameState.grid[a.ty][a.tx].removePossibleActor(ActorId.Mimic);
         }
 
     }
@@ -2747,10 +2723,38 @@ function updateKnownGameState() {
         }
     }
 
+    // chests need to be next to a minotaur and vice versa
+    for (let a of state.actors) {
+        if (knownGameState.grid[a.ty][a.tx].isOrWas(ActorId.Chest)) {
+            let mino = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].couldBeOrWas(ActorId.Minotaur));
+            if (mino.length == 1 && knownGameState.grid[mino[0].ty][mino[0].tx].knownActor() == null) {
+                solverLog(`Chest ${a.ty} ${a.tx} pinpoints a minotaur at ${mino[0].ty} ${mino[0].tx}`);
+                knownGameState.grid[mino[0].ty][mino[0].tx].possibleActors = [makeActor(ActorId.Minotaur)];
+                solverStats.chestsSpottingMinotaurs++;
+            }
+        }
+
+        if (knownGameState.grid[a.ty][a.tx].isOrWas(ActorId.Minotaur)) {
+            let chest = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].couldBeOrWas(ActorId.Chest));
+            if (chest.length == 1 && knownGameState.grid[chest[0].ty][chest[0].tx].knownPower() == null) {
+                solverLog(`Minotaur ${a.ty} ${a.tx} pinpoints a chest at ${chest[0].ty} ${chest[0].tx}`);
+                knownGameState.grid[chest[0].ty][chest[0].tx].possibleActors = [makeActor(ActorId.Chest)];
+                solverStats.minotaursSpottingChests++;
+            }
+        }
+    }
+
     // populate .was fields
     for (let a of state.actors) {
         if (knownGameState.grid[a.ty][a.tx].was == null && knownGameState.grid[a.ty][a.tx].knownActor() != undefined) {
-            knownGameState.grid[a.ty][a.tx].was = knownGameState.grid[a.ty][a.tx].knownActor();
+            // Chests clicked before we know if they were mimics or not turn into treasure/medikit.
+            // But we want to note that they were chests, actually
+            if (knownGameState.grid[a.ty][a.tx].lookedLikeClosedChest && knownGameState.grid[a.ty][a.tx].knownActor() != ActorId.Mimic) {
+                knownGameState.grid[a.ty][a.tx].was = ActorId.Chest;
+            }
+            else {
+                knownGameState.grid[a.ty][a.tx].was = knownGameState.grid[a.ty][a.tx].knownActor();
+            }
         }
     }
 
