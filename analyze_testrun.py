@@ -5,9 +5,9 @@ if len(sys.argv) < 2:
     print(f"Usage: {sys.argv[0]} testrun_file")
     exit(0)
 
-tetsrun_file: str = sys.argv[1]
+testrun_file: str = sys.argv[1]
 
-with open(tetsrun_file, "r") as f:
+with open(testrun_file, "r") as f:
     games = json.load(f)
 
 n: int = len(games)

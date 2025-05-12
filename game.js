@@ -3774,7 +3774,6 @@ function updatePlaying(ctx, dt) {
 
         // to check if mine king opportunity was missed (for solver stats)
         let mineKingWasPossible = (state.actors.find((a) => a.id == ActorId.MineKing && a.defeated == false) != undefined) && state.player.hp > 10;
-        let mineKingDefeated = false;
 
         // special case for the gnome
         if (pushed.id == ActorId.Gnome) {
@@ -4122,7 +4121,6 @@ function updatePlaying(ctx, dt) {
                                                                         }
                                                                         else
                                                                             if (pushed.id == ActorId.MineKing) {
-                                                                                mineKingDefeated = true;
                                                                                 makeSpellDisarm(pushed);
                                                                             }
                                                                             else {
@@ -4158,11 +4156,11 @@ function updatePlaying(ctx, dt) {
             solverStats.earlyWallHits++;
         }
 
+        let mineKingDefeated = (state.actors.find((a) => a.id == ActorId.MineKing && a.defeated == true) != undefined);
         if (mineKingWasPossible && !mineKingDefeated && state.player.hp <= 10) {
             solverLog(`Missed opportunity to hit mine king ASAP`);
             solverStats.mineKingOpportunitiesMissed += 1;
         }
-
 
 
         state.lastActorTypeClicked = pushed.id;
