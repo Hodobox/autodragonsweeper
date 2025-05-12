@@ -2264,6 +2264,9 @@ class SolverFeatures {
         this.edgeSlimeDetections = 0;
         this.adjSlimeDetections = 0;
         this.gargoylesSpotted = 0;
+        // this.minotaursSpottingChests = 0;
+        // this.chestsSpottingMinotaurs = 0;
+        this.mimicsFoundByMinotaurs = 0;
     }
 }
 
@@ -2412,6 +2415,16 @@ function updateKnownGameState() {
 
     // if we have a chest where only mimic can be, we found him
     if (!knownGameState.mimicFound) {
+
+        // chest without minotaur around is mimic
+        for (let a of state.actors.filter((a) => looksLikeClosedChest(a) && knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Mimic))) {
+            let mino_neigh = getNeighborsWithDiagonals(a.tx, a.ty).find((n) => knownGameState.grid[n.ty][n.tx].couldBeOrWas(ActorId.Minotaur));
+            if (mino_neigh == undefined) {
+                solverLog(`Chest at ${a.ty} ${a.tx} is mimic because no minotaur neighbor`);
+                solverStats.features.mimicsFoundByMinotaurs++;
+                knownGameState.grid[a.ty][a.tx].possibleActors = [makeActor(ActorId.Mimic)];
+            }
+        }
 
         for (let i = 0; i < state.actors.length; i++) {
             let a = state.actors[i];
