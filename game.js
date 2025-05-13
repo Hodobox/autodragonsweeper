@@ -2274,6 +2274,7 @@ class SolverFeatures {
         this.chestsSpottingMinotaurs = 0;
         this.mimicsFoundByMinotaurs = 0;
         this.deducedOddOneOut = 0;
+        this.mineKingGuesses = 0;
     }
 }
 
@@ -2514,24 +2515,31 @@ function updateKnownGameState() {
         let knownCreaturePower = 0;
         for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
             let nPower = knownGameState.grid[n.ty][n.tx].knownPower();
-            if (nPower != null) {
-                knownPower += nPower;
-                if (nPower != 100) {
-                    knownCreaturePower += nPower;
-                }
+            if (nPower == null) {
+                nPower = knownGameState.grid[n.ty][n.tx].bestCasePower();
             }
+
+            knownPower += nPower;
+            if (nPower != 100) {
+                knownCreaturePower += nPower;
+            }
+
         }
 
         const missingPower = number - knownPower;
         const missingCreaturePower = (number % 100) - knownCreaturePower;
 
         for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
-            if (n.revealed || knownGameState.grid[n.ty][n.tx].knownPower() != null) {
+            if (knownGameState.grid[n.ty][n.tx].knownPower() != null) {
                 continue;
             }
 
-            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel <= missingPower);
-            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel >= 100 || a.monsterLevel <= missingCreaturePower);
+            const missingWithoutMe = missingPower + knownGameState.grid[n.ty][n.tx].bestCasePower();
+            // %100 should be redundant, because bestCasePower = 100 <-> we know it's a mine, but hey
+            const missingCreatureWithoutMe = missingCreaturePower + (knownGameState.grid[n.ty][n.tx].bestCasePower() % 100);
+
+            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel <= missingWithoutMe);
+            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel >= 100 || a.monsterLevel <= missingCreatureWithoutMe);
         }
     }
 
@@ -3223,6 +3231,21 @@ function maybeGetNextClick() {
     if (hp >= 10 && mineKing != undefined) {
         solverLog(`Killing the MineKing`);
         return getActorIndexAt(mineKing.x, mineKing.y);
+    }
+
+    // MineKing is very cool, he's worth risking for.
+    // At this point in the game we should be able to continue nicely even if we miss
+    if (hp >= 10 && !knownGameState.mineKingFound) {
+        for (y of [0, state.gridH - 1]) {
+            for (x of [0, state.gridW - 1]) {
+                // at 10hp, we can hit any square that can't be a mine - if it's a mimic, we won't take damage, and a revealed chest cant couldBe(mineking)
+                if (knownGameState.grid[y][x].couldBe(ActorId.MineKing) && !knownGameState.grid[y][x].couldBe(ActorId.Mine)) {
+                    solverLog(`MineKing could be at ${y} ${x}, worth a shot`);
+                    solverStats.features.mineKingGuesses++;
+                    return getActorIndexAt(x, y);
+                }
+            }
+        }
     }
 
     const ratKing = VIPs.find((p) => p.id == ActorId.RatKing);
@@ -4520,7 +4543,7 @@ function updatePlaying(ctx, dt) {
     if (clickedLeft && levelupButtonR.contains(mousex, mousey) && isRestartButtonEnabled) {
         resetGame = true;
     }
-    if (solverTesting && isRestartButtonEnabled) {
+    if ((solverTesting || gameRandomnessSeeds.length) && isRestartButtonEnabled) {
         resetGame = true;
     }
 
@@ -5278,7 +5301,7 @@ function onUpdate(phase, dt) {
             }
             else if (state.status == GameStatus.WinScreen) {
                 updateWinscreen(ctx, dt);
-                if (solverTesting && Date.now() - lastSolverTestingAction > solverTestingCadenceMs) {
+                if ((solverTesting && Date.now() - lastSolverTestingAction > solverTestingCadenceMs) || gameRandomnessSeeds.length) {
                     updateSolverTestingStats();
                     newGame();
                 }
