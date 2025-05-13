@@ -3158,6 +3158,8 @@ function explorationPhaseClick() {
     }
 
     // try finding boring enemy to clear with
+    // but if we're full hp, hold off on hitting it until we run out of options
+    let targetBoringE = null;
     for (let e of boringE) {
 
         let p = knownGameState.grid[e.ty][e.tx].knownPower();
@@ -3175,8 +3177,16 @@ function explorationPhaseClick() {
         }
 
         if (canClearWithoutE[hp - p]) {
-            solverLog(`Can reveal known ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with known enemies`);
-            return getActorIndexAt(e.tx, e.ty);
+            if (state.player.hp == state.player.maxHP) {
+                if (targetBoringE == null) {
+                    solverLog(`Could clear with just boring enemies starting with ${e.ty} ${e.tx}, but will try to avoid this - a 'can't clear' target below means we managed to`);
+                }
+                targetBoringE = targetBoringE ?? e;
+            }
+            else {
+                solverLog(`Can reveal known ${e.ty} ${e.tx} with reveal value ${revealValues[e.ty][e.tx]} and finish off with known enemies`);
+                return getActorIndexAt(e.tx, e.ty);
+            }
         }
     }
 
@@ -3194,6 +3204,12 @@ function explorationPhaseClick() {
         let e = knownInterestingE[0];
         solverLog(`Can't clear, will hit interesting ${e.ty} ${e.tx}`);
         return getActorIndexAt(e.tx, e.ty);
+    }
+
+    // we tried avoiding hitting a boring enemy, but if we found one that lets us full clear, do it
+    if (targetBoringE != null) {
+        solverLog(`Can reveal known ${targetBoringE.ty} ${targetBoringE.tx} with reveal value ${revealValues[targetBoringE.ty][targetBoringE.tx]} and finish off with known enemies`);
+        return getActorIndexAt(targetBoringE.tx, targetBoringE.ty);
     }
 
     // hit boring enemy with highest power
