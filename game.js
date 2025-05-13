@@ -2990,6 +2990,35 @@ function explorationPhaseClick() {
     knownInterestingE.sort(sortByRevealValues);
     let boringE = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() > 0 && knownGameState.grid[a.ty][a.tx].knownPower() <= hp && revealValues[a.ty][a.tx] == 0);
     boringE.sort((a, b) => knownGameState.grid[b.ty][b.tx].knownPower() - knownGameState.grid[a.ty][a.tx].knownPower());
+    // and now a 4th bonus one: most interesting representative, for each square, of its unknown neighbors with some total power
+    let groupsOfE = []
+    for (let a of state.actors) {
+        let vis = getVisibleAttackNumber(a);
+        if (vis == null) {
+            continue;
+        }
+        let unknown = [];
+        let knownPower = 0;
+        let revealPower = 0;
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            let nPower = knownGameState.grid[n.ty][n.tx].knownPower();
+            if (nPower != null) {
+                knownPower += nPower;
+            }
+            else {
+                unknown.push(n);
+                revealPower += revealValues[n.ty][n.tx];
+            }
+        }
+
+        if (unknown.length == 0) {
+            continue;
+        }
+        let unknownPower = vis - knownPower;
+        unknown.sort(sortByRevealValues);
+        groupsOfE.push([revealPower, unknown[0], unknownPower]);
+    }
+    groupsOfE.sort((a, b) => b[0] - a[0]);
 
     // canClearInterestingly[i]: can use up i hp by killing just interesting enemies
     let canClearInterestingly = Array(hp + 1).fill().fill(false);
@@ -3007,6 +3036,34 @@ function explorationPhaseClick() {
         let p = knownGameState.grid[e.ty][e.tx].knownPower();
         for (let i = hp; i >= p; --i) {
             canClearAtAll[i] ||= canClearAtAll[i - p];
+        }
+    }
+
+    // try finding set of unknown squares which still allows interesting full clear
+    for (let g of groupsOfE) {
+        let rev = g[0], e = g[1], dmg = g[2];
+
+        if (dmg > hp) {
+            continue;
+        }
+
+        if (canClearInterestingly[hp - dmg]) {
+            solverLog(`Can start hitting group with reveal value ${rev}, total power ${dmg}, starting with ${e.ty} ${e.tx}, and finish off with interesting enemies`);
+            return getActorIndexAt(e.tx, e.ty);
+        }
+    }
+
+    // try finding set of unknown squares which still allows any full clear
+    for (let g of groupsOfE) {
+        let rev = g[0], e = g[1], dmg = g[2];
+
+        if (dmg > hp) {
+            continue;
+        }
+
+        if (canClearAtAll[hp - dmg]) {
+            solverLog(`Can start hitting group with reveal value ${rev}, total power ${dmg}, starting with ${e.ty} ${e.tx}, and finish off with known enemies`);
+            return getActorIndexAt(e.tx, e.ty);
         }
     }
 
