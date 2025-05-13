@@ -20,9 +20,11 @@ print(
     f"{n} games: {len(won)} won, {len(cleared)} cleared ({len(won_failed)} won but failed to clear)"
 )
 
-took_risk_won = sum([g["tookRisk"] for g in won]) / len(won)
-took_risk_won_failed = sum([g["tookRisk"] for g in won_failed]) / len(won_failed)
-took_risk_cleared = sum([g["tookRisk"] for g in cleared]) / len(cleared)
+took_risk_won = sum([g["tookRisk"] for g in won]) / max(len(won), 1)
+took_risk_won_failed = sum([g["tookRisk"] for g in won_failed]) / max(
+    len(won_failed), 1
+)
+took_risk_cleared = sum([g["tookRisk"] for g in cleared]) / max(len(cleared), 1)
 print(
     f"Had to risk it in {took_risk_won*100:.1f}% of won games; {took_risk_won_failed*100:.1f}% when no clear, {took_risk_cleared*100:.1f}% when clear"
 )
@@ -30,7 +32,7 @@ print(
 
 def ave_wall_hit(games: list[dict]) -> float:
     hits: int = sum([g["earlyWallHits"] for g in games])
-    return hits / len(games)
+    return hits / max(len(games), 1)
 
 
 print(
@@ -40,7 +42,7 @@ print(
 
 def ave_mk_misses(games: list[dict]) -> float:
     misses: int = sum([g["mineKingOpportunitiesMissed"] for g in games])
-    return misses / len(games)
+    return misses / max(len(games), 1)
 
 
 print(
@@ -50,7 +52,7 @@ print(
 
 def ave_score(games: list[dict]) -> float:
     score: int = sum([g["endStats"]["score"] for g in games])
-    return score / len(games)
+    return score / max(len(games), 1)
 
 
 print(f"When lost, on average had {ave_score(lost):.2f} score")
@@ -59,7 +61,7 @@ print(f"When won without clear, on average had {ave_score(won_failed):.2f} score
 
 def ave_dmg_to_go(games: list[dict]) -> float:
     dmg: int = sum([g["endStats"]["damageToGo"] for g in games])
-    return dmg / len(games)
+    return dmg / max(len(games), 1)
 
 
 print(
@@ -69,12 +71,12 @@ print(
 
 def ave_hp_left(games: list[dict]) -> float:
     hp: int = sum([g["endStats"]["hpLeftOver"] for g in games])
-    return hp / len(games)
+    return hp / max(len(games), 1)
 
 
 print(f"When cleared, on average had {ave_hp_left(cleared):.2f} hp left over")
 
-most_hp_left: int = max([g["endStats"]["hpLeftOver"] for g in cleared])
+most_hp_left: int = max([g["endStats"]["hpLeftOver"] for g in cleared] + [-1])
 most_hp_occured: int = len(
     [g for g in cleared if g["endStats"]["hpLeftOver"] == most_hp_left]
 )
@@ -85,7 +87,7 @@ print(f"Lost without risk: {len([g for g in lost if not g['tookRisk']])}")
 
 def get_feature_occ_and_ave(games: list[dict], f: str) -> tuple[int, float]:
     occ: int = sum([g.get("features", {}).get(f, 0) for g in games])
-    return occ, occ / len(games)
+    return occ, occ / max(len(games), 1)
 
 
 print(f"-- Features --")

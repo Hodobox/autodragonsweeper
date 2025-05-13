@@ -12,6 +12,8 @@ let lastSolverTestingAction = Date.now();
 /** @type {SolverStats[]} */
 let solverTestingStats = [];
 let solverTestingCadenceMs = 50;
+// For reproducible games
+let gameRandomnessSeeds = [];
 let solverTestingNumGames = 100;
 /** @type {BitmapFont} */
 let fontUINumbers;
@@ -525,6 +527,11 @@ function saveSettings() {
 }
 
 function newGame() {
+
+    let seed = gameRandomnessSeeds.length ? gameRandomnessSeeds.pop() : (Math.random() * 2 ** 32) >>> 0;
+    console.log(`Starting a game with seed ${seed}`)
+    seedDragonsweeperRandom(seed);
+
     state = new GameState();
     state.player.level = 1;
     state.player.maxHP = 6;
@@ -540,6 +547,7 @@ function newGame() {
 
     knownGameState = new KnownGameState();
     solverStats = new SolverStats();
+    solverStats.seed = seed;
     if (solverTestingStats.length == solverTestingNumGames) {
         solverTesting = false;
         console.log(`Done with solver testing`);
@@ -2253,6 +2261,7 @@ class SolverStats {
         this.nonfreeActions = 0;
         this.mineKingOpportunitiesMissed = 0;
         this.earlyWallHits = 0;
+        this.seed = -1;
         this.features = new SolverFeatures();
     }
 
