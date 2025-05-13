@@ -2274,6 +2274,7 @@ class SolverFeatures {
         this.chestsSpottingMinotaurs = 0;
         this.mimicsFoundByMinotaurs = 0;
         this.deducedOddOneOut = 0;
+        this.deducedUpperBound = 0;
         this.mineKingGuesses = 0;
     }
 }
@@ -2817,20 +2818,54 @@ function updateKnownGameState() {
             }
 
             let oddOneOut = missing[a.ty][a.tx].symmetricDifference(missing[n.ty][n.tx]);
-            if (oddOneOut.size != 1) {
+
+            if (oddOneOut.size == 0) {
                 continue;
             }
 
-            let deduce = oddOneOut.values().next().value;
-            let yx = decodeForSet(deduce);
+            if (oddOneOut.size == 1) {
 
-            let unknownIntersectionPower = missing[a.ty][a.tx].has(deduce) ? (vis[n.ty][n.tx] - known[n.ty][n.tx]) : (vis[a.ty][a.tx] - known[a.ty][a.tx]);
-            let missingPower = missing[a.ty][a.tx].has(deduce) ? unknown[a.ty][a.tx] : unknown[n.ty][n.tx];
-            let deducedPower = missingPower - unknownIntersectionPower;
+                let deduce = oddOneOut.values().next().value;
+                let yx = decodeForSet(deduce);
 
-            solverLog(`${a.ty} ${a.tx} and ${n.ty} ${n.tx} share all unknown squares apart from ${yx[0]} ${yx[1]}, shared power is ${unknownIntersectionPower}, and since in total they are ${missingPower} it must be ${deducedPower}`);
-            knownGameState.grid[yx[0]][yx[1]].possibleActors = knownGameState.grid[yx[0]][yx[1]].possibleActors.filter((a) => a.monsterLevel == deducedPower);
-            solverStats.features.deducedOddOneOut++;
+                let unknownIntersectionPower = missing[a.ty][a.tx].has(deduce) ? unknown[n.ty][n.tx] : unknown[a.ty][a.tx];
+                let missingPower = missing[a.ty][a.tx].has(deduce) ? unknown[a.ty][a.tx] : unknown[n.ty][n.tx];
+                let deducedPower = missingPower - unknownIntersectionPower;
+
+                solverLog(`${a.ty} ${a.tx} and ${n.ty} ${n.tx} share all unknown squares apart from ${yx[0]} ${yx[1]}, shared power is ${unknownIntersectionPower}, and since in total they are ${missingPower} it must be ${deducedPower}`);
+                knownGameState.grid[yx[0]][yx[1]].possibleActors = knownGameState.grid[yx[0]][yx[1]].possibleActors.filter((a) => a.monsterLevel == deducedPower);
+                solverStats.features.deducedOddOneOut++;
+                continue;
+            }
+
+            // if one is a superset of the other, we can at least limit them from above
+            if (oddOneOut.isSubsetOf(missing[a.ty][a.tx])) {
+                let unknownIntersectionPower = unknown[n.ty][n.tx];
+                let missingPower = unknown[a.ty][a.tx];
+                let deducedMaxPower = missingPower - unknownIntersectionPower;
+
+                for (let act of oddOneOut) {
+                    let yx = decodeForSet(act);
+                    if (knownGameState.grid[yx[0]][yx[1]].worstCasePower() > deducedMaxPower) {
+                        solverStats.features.deducedUpperBound++;
+                        knownGameState.grid[yx[0]][yx[1]].possibleActors = knownGameState.grid[yx[0]][yx[1]].possibleActors.filter(a => a.monsterLevel <= deducedMaxPower);
+                    }
+                }
+            }
+
+            if (oddOneOut.isSubsetOf(missing[n.ty][n.tx])) {
+                let unknownIntersectionPower = unknown[a.ty][a.tx];
+                let missingPower = unknown[n.ty][n.tx];
+                let deducedMaxPower = missingPower - unknownIntersectionPower;
+
+                for (let act of oddOneOut) {
+                    let yx = decodeForSet(act);
+                    if (knownGameState.grid[yx[0]][yx[1]].worstCasePower() > deducedMaxPower) {
+                        solverStats.features.deducedUpperBound++;
+                        knownGameState.grid[yx[0]][yx[1]].possibleActors = knownGameState.grid[yx[0]][yx[1]].possibleActors.filter(a => a.monsterLevel <= deducedMaxPower);
+                    }
+                }
+            }
         }
     }
 
