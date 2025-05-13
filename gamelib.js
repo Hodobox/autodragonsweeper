@@ -814,6 +814,25 @@ function canvasFromImage(image) {
     return ret;
 }
 
+// seedable PRNG
+function splitmix32(a) {
+    return function () {
+        a |= 0;
+        a = a + 0x9e3779b9 | 0;
+        let t = a ^ a >>> 16;
+        t = Math.imul(t, 0x21f0aaad);
+        t = t ^ t >>> 15;
+        t = Math.imul(t, 0x735a2d97);
+        return ((t = t ^ t >>> 15) >>> 0) / 4294967296;
+    }
+}
+
+let prng = splitmix32((Math.random() * 2 ** 32) >>> 0);
+
+function seedDragonsweeperRandom(seed) {
+    prng = splitmix32(seed);
+}
+
 
 function shuffle(array) {
     let currentIndex = array.length;
@@ -822,7 +841,7 @@ function shuffle(array) {
     while (currentIndex != 0) {
 
         // Pick a remaining element...
-        let randomIndex = Math.floor(Math.random() * currentIndex);
+        let randomIndex = Math.floor(prng() * currentIndex);
         currentIndex--;
 
         // And swap it with the current element.
