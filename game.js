@@ -2194,9 +2194,9 @@ class KnownGameState {
 
     // Tries to guess where the gazer is
     guessGazer() {
-        let possibleGazers = state.actors.filter((a) => !a.revealed);
+        let possibleGazers = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Gazer));
         let mostQuestionMarks = 0;
-        let bestGazer = null;
+        let bestGazers = [];
 
         for (let g of possibleGazers) {
             if (state.actors.find((a) => distance(a.tx, a.ty, g.tx, g.ty) <= 2 && getVisibleAttackNumber(a) != null) != undefined) {
@@ -2205,7 +2205,10 @@ class KnownGameState {
             const questionMarks = state.actors.filter((a) => distance(a.tx, a.ty, g.tx, g.ty) <= 2 && showsGazerQuestionmark(a)).length;
             if (questionMarks > mostQuestionMarks) {
                 mostQuestionMarks = questionMarks;
-                bestGazer = g;
+                bestGazers = [g];
+            }
+            else if (questionMarks == mostQuestionMarks) {
+                bestGazers.push(g);
             }
         }
 
@@ -2213,8 +2216,29 @@ class KnownGameState {
             return null;
         }
 
-        solverLog(`Guessing gazer at ${bestGazer.ty}, ${bestGazer.tx} because it matches ${mostQuestionMarks} question marks`);
-        return getActorIndexAt(bestGazer.tx, bestGazer.ty);
+        // don't guess the gazer if multiple ones explain the same ?s
+        for (let g of bestGazers) {
+            let unique = true;
+            const questionMarks = state.actors.filter((a) => distance(a.tx, a.ty, g.tx, g.ty) <= 2 && showsGazerQuestionmark(a))
+            for (let other of bestGazers) {
+                if (other.ty == g.ty && other.tx == g.tx) {
+                    continue;
+                }
+                const diff = questionMarks.find(a => distance(a.tx, a.ty, other.tx, other.y) > 2);
+
+                if (diff == undefined) {
+                    unique = false;
+                    // solverLog(`Possible gazer ${g.ty} ${g.tx} covers the same ? as ${other.ty} ${other.tx}, not guessing it`);
+                    break;
+                }
+
+            }
+            if (unique) {
+                solverLog(`Guessing gazer at ${g.ty}, ${g.tx} because it matches ${mostQuestionMarks} question marks that no other does`);
+                return getActorIndexAt(g.tx, g.ty);
+            }
+        }
+        return null;
     }
 
 }
