@@ -2721,7 +2721,28 @@ function updateKnownGameState() {
     // Hunt for the wizard
     if (!knownGameState.wizardFound) {
         let possible = state.actors.filter((a) => isEdge(a.tx, a.ty) || isCloseToEdge(a.tx, a.ty));
-        let maybeWizard = possible.find((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Wizard);
+        let edges = possible.filter(a => isEdge(a.tx, a.ty));
+        let nonEdges = possible.filter(a => isCloseToEdge(a.tx, a.ty) && !isEdge(a.tx, a.ty));
+
+        // breaks with seed 3856022340?
+        // clear bigSlimes from squares which cannot have a bigSlime neighbor
+        for (let a of possible) {
+            if (!knownGameState.grid[a.ty][a.tx].couldBeOrWas(ActorId.BigSlime)) {
+                continue;
+            }
+            // must have at least 1 non-edge neighbor slime
+            let ruled_out = !isCorner(a.tx, a.ty) && nonEdges.find(p => distance(p.tx, p.ty, a.tx, a.ty) == 1 && knownGameState.grid[p.ty][p.tx].couldBeOrWas(ActorId.BigSlime)) == undefined;
+            // non-edge slime must have at least 2
+            if (!isEdge(a.tx, a.ty)) {
+                ruled_out ||= possible.filter(p => distance(p.tx, p.ty, a.tx, a.ty) == 1 && knownGameState.grid[p.ty][p.tx].couldBeOrWas(ActorId.BigSlime)).length < 2;
+            }
+            if (ruled_out) {
+                // solverLog(`No bigslime at ${a.ty} ${a.tx}`);
+                knownGameState.grid[a.ty][a.tx].removePossibleActor(ActorId.BigSlime);
+            }
+        }
+
+        let maybeWizard = edges.find((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Wizard);
         if (maybeWizard != undefined) {
             knownGameState.wizardFound = true;
             for (let n of getNeighborsWithDiagonals(maybeWizard.tx, maybeWizard.ty)) {
@@ -3029,6 +3050,18 @@ function knapsackToEnd(dp, powers, i, hp) {
     return dp[i][hp];
 }
 
+function worstCaseRevealDamage(a) {
+    if (!knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Mimic)) {
+        return knownGameState.grid[a.ty][a.tx].worstCasePower();
+    }
+
+    if (a.revealed) {
+        return 11;
+    }
+
+    return Math.max(...knownGameState.grid[a.ty][a.tx].possibleActors.filter(a => a.id != ActorId.Mimic).map(a => a.monsterLevel));
+}
+
 // knapsack from highest health enemy, but prefering lovers
 function cleanupPhaseClick() {
     let enemies = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() > 0);
@@ -3060,7 +3093,7 @@ function explorationPhaseClick() {
     populateRevealValues();
 
     // 3 categories of enemy: unknown squares, known squares with interest, known squares which give us nothing
-    let unknownE = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined && knownGameState.grid[a.ty][a.tx].worstCasePower() <= hp);
+    let unknownE = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined && worstCaseRevealDamage(a) <= hp);
     unknownE.sort(sortByRevealValues);
     let knownInterestingE = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() > 0 && knownGameState.grid[a.ty][a.tx].knownPower() <= hp && revealValues[a.ty][a.tx] > 0);
     knownInterestingE.sort(sortByRevealValues);
@@ -3225,11 +3258,11 @@ function explorationPhaseClick() {
         }
     }
 
-    // hit unknown square with lowest worst case power
-    unknownE.sort((a, b) => knownGameState.grid[a.ty][a.tx].worstCasePower() - knownGameState.grid[b.ty][b.tx].worstCasePower());
+    // hit unknown square with lowest worst case reveal damage
+    unknownE.sort((a, b) => worstCaseRevealDamage(a) - worstCaseRevealDamage(b));
     if (unknownE.length > 0) {
         let e = unknownE[0];
-        solverLog(`Can't clear, will hit unknown ${e.ty} ${e.tx} with worst case power ${knownGameState.grid[e.ty][e.tx].worstCasePower()}`);
+        solverLog(`Can't clear, will hit unknown ${e.ty} ${e.tx} with worst case reveal damage ${worstCaseRevealDamage(e)}`);
         return getActorIndexAt(e.tx, e.ty);
     }
 
