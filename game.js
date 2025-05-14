@@ -2284,6 +2284,7 @@ class SolverFeatures {
         this.mimicsFoundByMinotaurs = 0;
         this.deducedOddOneOut = 0;
         this.deducedUpperBound = 0;
+        this.deducedOddMineOut = 0;
         this.mineKingGuesses = 0;
     }
 }
@@ -2620,7 +2621,7 @@ function updateKnownGameState() {
         }
 
         const numMines = Math.floor(hintedPower / 100);
-        const possibleMineNeighs = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].worstCasePower() == 100);
+        const possibleMineNeighs = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].couldBe(ActorId.Mine));
 
         if (possibleMineNeighs.length == numMines) {
             solverLog(`Need ${numMines} mines around ${a.ty}, ${a.tx} and exactly as many spots!`);
@@ -2894,6 +2895,45 @@ function updateKnownGameState() {
                         knownGameState.grid[yx[0]][yx[1]].possibleActors = knownGameState.grid[yx[0]][yx[1]].possibleActors.filter(a => a.monsterLevel <= deducedMaxPower);
                     }
                 }
+            }
+        }
+    }
+
+    // if a square A needs X more mines around it than a neighboring square B
+    // and we have exactly that many squares available that aren't next to B and could be mines
+    // well then they are
+    for (let a of state.actors.filter(a => getVisibleAttackNumber(a) >= 100)) {
+        let need = Math.floor(getVisibleAttackNumber(a) / 100);
+        let missing = need - getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].knownActor() == ActorId.Mine).length;
+
+        if (missing == 0) {
+            continue;
+        }
+
+        let plausibleMines = getNeighborsWithDiagonals(a.tx, a.ty).filter(s => knownGameState.grid[s.ty][s.tx].couldBe(ActorId.Mine) && knownGameState.grid[s.ty][s.tx].knownActor() == null);
+
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            let nv = getVisibleAttackNumber(n);
+            if (nv == null) {
+                continue;
+            }
+            let neiNeed = Math.floor(nv / 100);
+            let neiMiss = neiNeed - getNeighborsWithDiagonals(n.tx, n.ty).filter(n => knownGameState.grid[n.ty][n.tx].knownActor() == ActorId.Mine).length;
+
+            if (neiMiss >= missing) {
+                continue;
+            }
+
+            let needToPutSomewhereElse = missing - neiMiss;
+            let unshared = plausibleMines.filter(m => distance(n.tx, n.ty, m.tx, m.ty) > 1.5);
+
+            if (unshared.length == needToPutSomewhereElse) {
+                solverLog(`${needToPutSomewhereElse} mines surrounding ${a.ty} ${a.tx} need to be placed away from ${n.ty} ${n.tx}`);
+                solverStats.features.deducedOddMineOut++;
+                for (let u of unshared) {
+                    knownGameState.grid[u.ty][u.tx].possibleActors = [makeActor(ActorId.Mine)];
+                }
+                break;
             }
         }
     }
@@ -3604,11 +3644,14 @@ function updateBook(ctx, dt, worldR, HUDRect, clickedLeft) {
         if (clickedLeft && setSeedRect.contains(mousex, mousey)) {
             let userInputSeed = prompt("Enter the level seed (a positive number)");
             if (userInputSeed != null) {
-                let parsedSeed = parseInt(userInputSeed) | 0;
+                let parsedSeed = parseInt(userInputSeed);
                 if (parsedSeed > 0) {
                     gameRandomnessSeeds = [parsedSeed];
                     play("restart");
                     newGame();
+                }
+                else {
+                    console.log(`Received seed ${userInputSeed} but that is not a valid seed (parsed into ${parsedSeed})`);
                 }
             }
         }
