@@ -3600,6 +3600,19 @@ function updateBook(ctx, dt, worldR, HUDRect, clickedLeft) {
         drawFrame(ctx, stripIcons, state.seedWasProvided ? 23 : 143, bookRight.centerx() - 69, bookRight.bottom() - 25);
         fontBook.drawLine(ctx, "seed: " + state.seed, bookRight.centerx(), bookRight.bottom() - 20, FONT_CENTER);
 
+        let setSeedRect = fontUIBook.drawLine(ctx, "**set a seed**", bookRight.centerx(), bookRight.bottom() - 8, FONT_CENTER);
+        if (clickedLeft && setSeedRect.contains(mousex, mousey)) {
+            let userInputSeed = prompt("Enter the level seed (a positive number)");
+            if (userInputSeed != null) {
+                let parsedSeed = parseInt(userInputSeed) | 0;
+                if (parsedSeed > 0) {
+                    gameRandomnessSeeds = [parsedSeed];
+                    play("restart");
+                    newGame();
+                }
+            }
+        }
+
         fontUIBook.drawLine(ctx, version, bookLeft.right() - 50, bookRight.bottom() - 12);
 
         drawFrame(ctx, stripBookFlap, 0, flapR.centerx() - 2, flapR.centery() - 2);
