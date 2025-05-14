@@ -396,6 +396,8 @@ class GameState {
     constructor() {
         this.gridW = 0;
         this.gridH = 0;
+        this.seed = 0;
+        this.seedWasProvided = false;
         /** @type {Actor[]} */
         this.actors = [];
         this.player = new PlayerState();
@@ -527,17 +529,24 @@ function saveSettings() {
 }
 
 function newGame() {
-
-    let seed = gameRandomnessSeeds.length ? gameRandomnessSeeds.pop() : (Math.random() * 2 ** 32) >>> 0;
-    console.log(`Starting a game with seed ${seed}`)
-    seedDragonsweeperRandom(seed);
-
     state = new GameState();
     state.player.level = 1;
     state.player.maxHP = 6;
     state.player.hp = state.player.maxHP;
     state.gridW = 13;
     state.gridH = 10;
+
+    if (gameRandomnessSeeds.length) {
+        state.seed = gameRandomnessSeeds.pop();
+        state.seedWasProvided = true;
+        console.log(`Starting a game with provided seed ${state.seed}`);
+    } else {
+        state.seed = (Math.random() * 2 ** 32) >>> 0;
+        state.seedWasProvided = false;
+        console.log(`Starting a game with random seed ${state.seed}`);
+    }
+
+    seedDragonsweeperRandom(state.seed);
 
     state.status = GameStatus.GeneratingDungeon;
     state.waitForAFrameBeforeGeneration = true;
@@ -547,7 +556,7 @@ function newGame() {
 
     knownGameState = new KnownGameState();
     solverStats = new SolverStats();
-    solverStats.seed = seed;
+    solverStats.seed = state.seed;
     if (solverTestingStats.length == solverTestingNumGames) {
         solverTesting = false;
         console.log(`Done with solver testing`);
@@ -2724,7 +2733,6 @@ function updateKnownGameState() {
         let edges = possible.filter(a => isEdge(a.tx, a.ty));
         let nonEdges = possible.filter(a => isCloseToEdge(a.tx, a.ty) && !isEdge(a.tx, a.ty));
 
-        // breaks with seed 3856022340?
         // clear bigSlimes from squares which cannot have a bigSlime neighbor
         for (let a of possible) {
             if (!knownGameState.grid[a.ty][a.tx].couldBeOrWas(ActorId.BigSlime)) {
@@ -3589,6 +3597,8 @@ function updateBook(ctx, dt, worldR, HUDRect, clickedLeft) {
         // showCount(makeChest);
 
         // fontBook.drawLine(ctx, "score: "+state.player.score, bookRight.centerx(), bookRight.bottom() - 20, FONT_CENTER);
+        drawFrame(ctx, stripIcons, state.seedWasProvided ? 23 : 143, bookRight.centerx() - 69, bookRight.bottom() - 25);
+        fontBook.drawLine(ctx, "seed: " + state.seed, bookRight.centerx(), bookRight.bottom() - 20, FONT_CENTER);
 
         fontUIBook.drawLine(ctx, version, bookLeft.right() - 50, bookRight.bottom() - 12);
 
