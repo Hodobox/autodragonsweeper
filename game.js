@@ -575,6 +575,7 @@ function generateDungeon() {
     // buttons and all available actors
     let buttonFrameBag = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
     let currentButtonBag = [];
+    state.actors = []; state.wallLocations = []; state.chestsLocations = [];
     for (let y = 0; y < state.gridH; y++) {
         for (let x = 0; x < state.gridW; x++) {
             let a = new Actor();
@@ -712,9 +713,6 @@ function generateDungeon() {
     }
 
     computeStats();
-    if (!RELEASE) {
-        checkLevel();
-    }
 
     function beginLayer() {
         currentLayer = new RandomGeneratorLayer();
@@ -1019,31 +1017,31 @@ function isGargoyleInRightPlace(a) {
 }
 
 function checkLevel() {
-    console.log("checking level...");
+    // console.log("checking level...");
     for (let a of state.actors) {
         if (a.id == ActorId.BigSlime) {
-            if (!isCloseTo(a, ActorId.Wizard, 1.5)) fail("misplaced slime");
+            if (!isCloseTo(a, ActorId.Wizard, 1.5)) return fail("misplaced slime");
         }
         else
             if (a.id == ActorId.Gargoyle) {
-                if (!isGargoyleInRightPlace(a)) fail("gargoyle misplaced");
+                if (!isGargoyleInRightPlace(a)) return fail("gargoyle misplaced");
             }
             else
                 if (a.id == ActorId.Guard) {
-                    if (!isGuardianInRightQuadrant(a)) fail("guardian misplaced");
+                    if (!isGuardianInRightQuadrant(a)) return fail("guardian misplaced");
                 }
                 else
                     if (a.id == ActorId.MineKing) {
-                        if (!isCorner(a.tx, a.ty)) fail("mine king not in corner");
+                        if (!isCorner(a.tx, a.ty)) return fail("mine king not in corner");
                     }
                     else
                         if (a.id == ActorId.Giant) {
                             let centerx = Math.floor(state.gridW / 2);
                             let other = state.actors.find(b => b.id == ActorId.Giant && b.name != a.name);
                             if (other == undefined) continue;
-                            if ((a.name == "romeo" && a.tx > 5) || (a.name == "juliet" && a.tx < 7)) fail("misplaced giant");
-                            if (other.ty != a.ty) fail("misplaced giant");
-                            if (Math.abs(a.tx - centerx) != Math.abs(other.tx - centerx)) fail("misplaced giant");
+                            if ((a.name == "romeo" && a.tx > 5) || (a.name == "juliet" && a.tx < 7)) return fail("misplaced giant");
+                            if (other.ty != a.ty) return fail("misplaced giant");
+                            if (Math.abs(a.tx - centerx) != Math.abs(other.tx - centerx)) return fail("misplaced giant");
                         }
                         else
                             if (a.id == ActorId.Minotaur) {
@@ -1055,13 +1053,16 @@ function checkLevel() {
                                 }
 
                                 if (chests != 1) {
-                                    console.error("minotaur wrong place");
+                                    return fail("minotaur wrong place");
                                 }
                             }
     }
 
+    return true;
+
     function fail(msg) {
-        console.error(msg);
+        // console.error(msg);
+        return false;
     }
 }
 
@@ -3794,6 +3795,8 @@ function updateGeneratingDungeon(ctx, dt) {
     }
     else {
         generateDungeon();
+        while (!checkLevel()) generateDungeon();
+
         // I need this to eat any input events that were queued during generation
         state.waitForFramesAfterGeneration = 1;
     }
