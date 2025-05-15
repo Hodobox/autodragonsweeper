@@ -400,6 +400,8 @@ class GameState {
         this.seedWasProvided = false;
         /** @type {Actor[]} */
         this.actors = [];
+        this.actorsGrid = [];
+        this.actorsIndexGrid = [];
         this.player = new PlayerState();
         this.showingMonsternomicon = false;
         this.buttonFrames = [];
@@ -576,6 +578,7 @@ function generateDungeon() {
     let buttonFrameBag = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24];
     let currentButtonBag = [];
     state.actors = []; state.wallLocations = []; state.chestsLocations = [];
+    state.actorsGrid = Array(state.gridH).fill().map(() => []); state.actorsIndexGrid = Array(state.gridH).fill().map(() => []);
     for (let y = 0; y < state.gridH; y++) {
         for (let x = 0; x < state.gridW; x++) {
             let a = new Actor();
@@ -583,6 +586,8 @@ function generateDungeon() {
             a.tx = x;
             a.ty = y;
             state.actors.push(a);
+            state.actorsGrid[y][x] = a;
+            state.actorsIndexGrid[y][x] = state.actors.length - 1;
 
             if (currentButtonBag.length == 0) {
                 currentButtonBag = buttonFrameBag.slice();
@@ -730,6 +735,8 @@ function generateDungeon() {
         let bestHappiness = happiness();
         for (let k = 0; k < 4; k++) {
             shuffle(state.actors);
+            for (let i = 0; i < state.actors.length; ++i) { state.actorsIndexGrid[state.actors[i].ty][state.actors[i].tx] = i; }
+
             for (let i = 0; i < layerActors.length; i++) {
                 let a = layerActors[i];
                 let happiestReplacement = null;
@@ -774,6 +781,11 @@ function generateDungeon() {
         a.ty = b.ty;
         b.tx = tempx;
         b.ty = tempy;
+        state.actorsGrid[a.ty][a.tx] = a;
+        state.actorsGrid[b.ty][b.tx] = b;
+        let tempIndex = state.actorsIndexGrid[a.ty][a.tx];
+        state.actorsIndexGrid[a.ty][a.tx] = state.actorsIndexGrid[b.ty][b.tx];
+        state.actorsIndexGrid[b.ty][b.tx] = tempIndex;
     }
 
     function happiness() {
@@ -1142,16 +1154,26 @@ function isInside(tx, ty) {
 }
 
 function getActorAt(tx, ty) {
-    return state.actors.find(a => a.tx == tx && a.ty == ty);
+    return state.actorsGrid[ty][tx];
+    // let mine = state.actorsGrid[ty][tx];
+    // if(state.actors.find(a => a.tx == tx && a.ty == ty) !== mine) {
+    //      console.error(`bad actor at ${ty} ${tx});
+    // }
+    // return state.actors.find(a => a.tx == tx && a.ty == ty);
 }
 
 function getActorIndexAt(tx, ty) {
-    for (let i = 0; i < state.actors.length; i++) {
-        if (state.actors[i].tx == tx && state.actors[i].ty == ty) {
-            return i;
-        }
-    }
-    return -1;
+    return state.actorsIndexGrid[ty][tx];
+    // let mine = state.actorsIndexGrid[ty][tx];
+    // for (let i = 0; i < state.actors.length; i++) {
+    //     if (state.actors[i].tx == tx && state.actors[i].ty == ty) {
+    //         if (mine != i) {
+    //             console.error(`bad index, ${tx} ${ty} is ${i} but I say ${mine}`);
+    //         }
+    //         return i;
+    //     }
+    // }
+    // return -1;
 }
 
 function revealIsolatedGroupsOfMines(actors) {
@@ -1220,26 +1242,68 @@ function recursiveReveal(a, tabooArray = []) {
 }
 
 function getNeighborsWithDiagonals(tx, ty) {
-    let ret = [];
-    for (let a of state.actors) {
-        if (a.tx == tx && a.ty == ty) continue;
-        if (distance(a.tx, a.ty, tx, ty) < 2) {
-            ret.push(a);
+
+    let newret = [];
+    for (let dx of [-1, 1, 0]) {
+        for (let dy of [-1, 1, 0]) {
+            if (dx == 0 && dy == 0) {
+                continue;
+            }
+            if (tx + dx >= 0 && tx + dx < state.gridW && ty + dy >= 0 && ty + dy < state.gridH) {
+                newret.push(state.actorsGrid[ty + dy][tx + dx]);
+            }
         }
     }
-    return ret;
+    newret.sort((a, b) => getActorIndexAt(a.tx, a.ty) - getActorIndexAt(b.tx, b.ty));
+    return newret;
+
+    // let ret = [];
+    // for (let a of state.actors) {
+    //     if (a.tx == tx && a.ty == ty) continue;
+    //     if (distance(a.tx, a.ty, tx, ty) < 2) {
+    //         ret.push(a);
+    //     }
+    // }
+
+    // if (!arraysEqual(newret, ret)) {
+    //     console.error(`old and new diag neighbors not the same`);
+    //     console.error(ret);
+    //     console.error(newret);
+    // }
+
+    // return ret;
 }
 
 function getNeighborsCross(tx, ty) {
-    let ret = [];
-    for (let a of state.actors) {
-        if (a.tx == tx && a.ty == ty) continue;
-        let dist = distance(a.tx, a.ty, tx, ty);
-        if (dist == 1) {
-            ret.push(a);
+
+
+    let newret = [];
+    let dxs = [-1, 1, 0, 0];
+    let dys = [0, 0, -1, 1];
+    for (let i = 0; i < 4; ++i) {
+        let dx = dxs[i], dy = dys[i];
+        if (tx + dx >= 0 && tx + dx < state.gridW && ty + dy >= 0 && ty + dy < state.gridH) {
+            newret.push(state.actorsGrid[ty + dy][tx + dx]);
         }
     }
-    return ret;
+    newret.sort((a, b) => getActorIndexAt(a.tx, a.ty) - getActorIndexAt(b.tx, b.ty));
+
+    return newret;
+
+    // let ret = [];
+    // for (let a of state.actors) {
+    //     if (a.tx == tx && a.ty == ty) continue;
+    //     let dist = distance(a.tx, a.ty, tx, ty);
+    //     if (dist == 1) {
+    //         ret.push(a);
+    //     }
+    // }
+    // if (!arraysEqual(newret, ret)) {
+    //     console.error(`Old and new cross neighbors not the same`);
+    //     console.error(ret);
+    //     console.error(newret);
+    // }
+    // return ret;
 }
 
 function getRectForTile(tx, ty) {
