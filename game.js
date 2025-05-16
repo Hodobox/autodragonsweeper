@@ -2351,6 +2351,7 @@ class SolverFeatures {
         this.deducedUpperBound = 0;
         this.deducedOddMineOut = 0;
         this.mineKingGuesses = 0;
+        this.panicking = 0;
     }
 }
 
@@ -3201,6 +3202,18 @@ function cleanupPhaseClick() {
     }
 }
 
+function hailMaryClickActor() {
+    let unknownE = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
+    unknownE.sort((a, b) => knownGameState.grid[b.ty][b.tx].survivalProbability() - knownGameState.grid[a.ty][a.tx].survivalProbability());
+    if (unknownE.length > 0) {
+        let e = unknownE[0];
+        if (knownGameState.grid[e.ty][e.tx].survivalProbability() > 0) {
+            return getActorAt(e.tx, e.ty);
+        }
+    }
+    return null;
+}
+
 function explorationPhaseClick() {
     const hp = state.player.hp - 1;
     populateRevealValues();
@@ -3338,6 +3351,17 @@ function explorationPhaseClick() {
         }
     }
 
+    // sometimes we are in a situation where we are a bit stuck
+    // but hitting a boring enemy will not get us anywhere, it only delays the problem
+    // it's better to try and risk it early, when we have more chances to find a way out
+    // shouldDelay: should try and find a safe square to hit first
+    let shouldDelayHittingBoringEnemy = (state.player.hp == state.player.maxHP);
+    // shouldAvoid: should try and hit a dangerous square as well instead.
+    let haveAHeal = state.actors.find(a => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Medikit) != undefined;
+    let xpNeeded = nextLevelXP(state.player.level) - state.player.xp;
+    let canLevelUp = canClearAtAll.map((v, i) => v && i >= xpNeeded).find(a => a) != undefined;
+    let shouldAvoidHittingBoringEnemy = !haveAHeal && !canLevelUp;
+
     // try finding boring enemy to clear with
     // but if we're full hp, hold off on hitting it until we run out of options
     let targetBoringE = null;
@@ -3358,8 +3382,9 @@ function explorationPhaseClick() {
         }
 
         if (canClearWithoutE[hp - p]) {
-            if (state.player.hp == state.player.maxHP) {
+            if (shouldDelayHittingBoringEnemy || shouldAvoidHittingBoringEnemy) {
                 if (targetBoringE == null) {
+                    if (!shouldDelayHittingBoringEnemy) { solverStats.features.panicking++; }
                     solverLog(`Could clear with just boring enemies starting with ${e.ty} ${e.tx}, but will try to avoid this - a 'can't clear' target below means we managed to`);
                 }
                 targetBoringE = targetBoringE ?? e;
@@ -3385,6 +3410,16 @@ function explorationPhaseClick() {
         let e = knownInterestingE[0];
         solverLog(`Can't clear, will hit interesting ${e.ty} ${e.tx}`);
         return getActorIndexAt(e.tx, e.ty);
+    }
+
+    // If we are adamant we want to avoid hitting a boring enemy, cut straight to the hail mary
+    if (shouldAvoidHittingBoringEnemy) {
+        let hailMary = hailMaryClickActor();
+        if (hailMary != null) {
+            solverStats.tookRisk = true;
+            solverLog(`Could maybe hit a boring enemy ${targetBoringE != null}, but we are panicking, go for hail mary at ${hailMary.ty} ${hailMary.tx} with survival probability ${knownGameState.grid[hailMary.ty][hailMary.tx].survivalProbability()}`);
+            return getActorIndexAt(hailMary.tx, hailMary.ty);
+        }
     }
 
     // we tried avoiding hitting a boring enemy, but if we found one that lets us full clear, do it
@@ -3522,18 +3557,15 @@ function maybeGetNextClick() {
 
     // Hail mary
     solverLog(`Unable to find any safe click`);
-    let unknownE = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
-    unknownE.sort((a, b) => knownGameState.grid[b.ty][b.tx].survivalProbability() - knownGameState.grid[a.ty][a.tx].survivalProbability());
-    if (unknownE.length > 0) {
-        let e = unknownE[0];
-        if (knownGameState.grid[e.ty][e.tx].survivalProbability() > 0) {
-            solverStats.tookRisk = true;
-            solverLog(`Clicking dangerous unknown square ${e.ty} ${e.tx} with estimated surival probability ${knownGameState.grid[e.ty][e.tx].survivalProbability()}`);
-            return getActorIndexAt(e.tx, e.ty);
-        }
+    let hailMary = hailMaryClickActor();
+    if (hailMary != null) {
+        solverStats.tookRisk = true;
+        solverLog(`Clicking dangerous unknown square ${hailMary.ty} ${hailMary.tx} with estimated surival probability ${knownGameState.grid[hailMary.ty][hailMary.tx].survivalProbability()}`);
+        return getActorIndexAt(hailMary.tx, hailMary.ty);
     }
 
     // Give up
+    // you need to purposefuly set it up so that this happens, but whatever floats your boat
     solverLog(`Every click is suicide, good game.`);
     return getActorIndexAt(4, Math.floor(state.gridW / 2));
 }
