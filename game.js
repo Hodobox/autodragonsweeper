@@ -2406,6 +2406,12 @@ function updateKnownGameState() {
             knownGameState.ratKingFound = true;
         }
 
+        // Chests clicked before we know if they were mimics or not turn into treasure/medikit.
+        // But we want to note that they were chests, actually
+        if (knownGameState.grid[a.ty][a.tx].lookedLikeClosedChest && (a.id == ActorId.Treasure || a.id == ActorId.Medikit)) {
+            knownGameState.grid[a.ty][a.tx].was = ActorId.Chest;
+        }
+
         if (a.id != ActorId.Chest && a.id != ActorId.Mimic) {
             knownGameState.grid[a.ty][a.tx].possibleActors = [a];
             continue;
@@ -3007,14 +3013,7 @@ function updateKnownGameState() {
     // populate .was fields
     for (let a of state.actors) {
         if (knownGameState.grid[a.ty][a.tx].was == null && knownGameState.grid[a.ty][a.tx].knownActor() != undefined) {
-            // Chests clicked before we know if they were mimics or not turn into treasure/medikit.
-            // But we want to note that they were chests, actually
-            if (knownGameState.grid[a.ty][a.tx].lookedLikeClosedChest && knownGameState.grid[a.ty][a.tx].knownActor() != ActorId.Mimic) {
-                knownGameState.grid[a.ty][a.tx].was = ActorId.Chest;
-            }
-            else {
-                knownGameState.grid[a.ty][a.tx].was = knownGameState.grid[a.ty][a.tx].knownActor();
-            }
+            knownGameState.grid[a.ty][a.tx].was = knownGameState.grid[a.ty][a.tx].knownActor();
         }
     }
 
@@ -3093,11 +3092,43 @@ function maybeGetFreeClick() {
     return click;
 }
 
+function numberWithSameUnknownNeighborExists(a) {
+    let missing = new Set();
+    function encodeForSet(tx, ty) { return ty * state.gridW + tx; }
+    for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+        if (knownGameState.grid[n.ty][n.tx].knownPower() == null) {
+            missing.add(encodeForSet(n.tx, n.ty));
+        }
+    }
+
+    for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+        if (getVisibleAttackNumber(n) == null) {
+            continue;
+        }
+
+        let nMissing = new Set();
+        for (let nn of getNeighborsWithDiagonals(n.tx, n.ty)) {
+            if (knownGameState.grid[nn.ty][nn.tx].knownPower() == null) {
+                nMissing.add(encodeForSet(nn.tx, nn.ty));
+            }
+        }
+
+        if (missing.symmetricDifference(nMissing).size == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // bunch of heuristic nonsense trying to figure out how good this square is to reveal
 function computeRevealValue(a) {
 
     if (a.revealed && isEmpty(a)) {
         return -1;
+    }
+
+    if (knownGameState.grid[a.ty][a.tx].knownPower() != undefined && numberWithSameUnknownNeighborExists(a)) {
+        return 0;
     }
 
     let value = 0;
