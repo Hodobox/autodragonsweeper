@@ -2352,6 +2352,9 @@ class SolverFeatures {
         this.deducedOddMineOut = 0;
         this.mineKingGuesses = 0;
         this.panicking = 0;
+        this.sharedMinesForceOthersOut = 0;
+        this.shiftedUnknownSquaresTiedTogether = 0;
+        this.shiftedUnknownSquaresBoundByAnother = 0;
     }
 }
 
@@ -2889,7 +2892,10 @@ function updateKnownGameState() {
         }
     }
 
-    // if two neighboring numbers have all squares in common but one, we can deduce that one
+    // v0: if two neighboring numbers have all squares in common but one, we can deduce that one
+    // v1: if all unshared squares belong to one of them, the shared squares' power give a bound from above
+    // v2: if there are two unshared squares, one belonging to each of the neighbors, this ties their powers together
+    // v3: if one neighbor has 1 unshared square, and the other has X>1, we can put a bound on them from above
     let vis = Array(state.gridH).fill().map(() => []), known = Array(state.gridH).fill().map(() => []), unknown = Array(state.gridH).fill().map(() => []);
     let missing = Array(state.gridH).fill().map(() => new Array(state.gridW).fill().map(() => new Set()));
     function encodeForSet(tx, ty) { return ty * state.gridW + tx; }
@@ -2925,6 +2931,7 @@ function updateKnownGameState() {
                 continue;
             }
 
+            // v0
             if (oddOneOut.size == 1) {
 
                 let deduce = oddOneOut.values().next().value;
@@ -2940,8 +2947,12 @@ function updateKnownGameState() {
                 continue;
             }
 
+            let aNeighbors = [...oddOneOut].filter(v => missing[a.ty][a.tx].has(v));
+            let nNeighbors = [...oddOneOut].filter(v => missing[n.ty][n.tx].has(v));
+
+            // v1
             // if one is a superset of the other, we can at least limit them from above
-            if (oddOneOut.isSubsetOf(missing[a.ty][a.tx])) {
+            if (aNeighbors.length == oddOneOut.size) {
                 let unknownIntersectionPower = unknown[n.ty][n.tx];
                 let missingPower = unknown[a.ty][a.tx];
                 let deducedMaxPower = missingPower - unknownIntersectionPower;
@@ -2955,7 +2966,7 @@ function updateKnownGameState() {
                 }
             }
 
-            if (oddOneOut.isSubsetOf(missing[n.ty][n.tx])) {
+            if (nNeighbors.length == oddOneOut.size) {
                 let unknownIntersectionPower = unknown[a.ty][a.tx];
                 let missingPower = unknown[n.ty][n.tx];
                 let deducedMaxPower = missingPower - unknownIntersectionPower;
@@ -2966,6 +2977,90 @@ function updateKnownGameState() {
                         solverStats.features.deducedUpperBound++;
                         knownGameState.grid[yx[0]][yx[1]].possibleActors = knownGameState.grid[yx[0]][yx[1]].possibleActors.filter(a => a.monsterLevel <= deducedMaxPower);
                     }
+                }
+            }
+
+
+            let powerChangeFromAtoN = unknown[n.ty][n.tx] - unknown[a.ty][a.tx];
+            // v2
+            if (aNeighbors.length == 1 && nNeighbors.length == 1) {
+                let aSquare = getActorAt(decodeForSet(aNeighbors[0])[1], decodeForSet(aNeighbors[0])[0]);
+                let nSquare = getActorAt(decodeForSet(nNeighbors[0])[1], decodeForSet(nNeighbors[0])[0]);
+
+
+                // nSquare power is aSquare power + powerChangeFromAtoN
+
+                let eliminated = [];
+                for (let aActor of knownGameState.grid[aSquare.ty][aSquare.tx].possibleActors) {
+                    let nHasNeededPower = knownGameState.grid[nSquare.ty][nSquare.tx].possibleActors.find(p => p.monsterLevel == aActor.monsterLevel + powerChangeFromAtoN) != undefined;
+                    if (!nHasNeededPower) {
+                        eliminated.push(aActor.id);
+                        knownGameState.grid[aSquare.ty][aSquare.tx].removePossibleActor(aActor.id);
+                    }
+                }
+                if (eliminated.length > 0) {
+                    solverStats.features.shiftedUnknownSquaresTiedTogether++;
+                    solverLog(`Power difference ${powerChangeFromAtoN} between ${nSquare.ty} ${nSquare.tx} - ${aSquare.ty} ${aSquare.tx}  eliminates ${eliminated} from the latter`);
+                    eliminated = [];
+                }
+
+                for (let nActor of knownGameState.grid[nSquare.ty][nSquare.tx].possibleActors) {
+                    let aHasNeededPower = knownGameState.grid[aSquare.ty][aSquare.tx].possibleActors.find(p => p.monsterLevel == nActor.monsterLevel - powerChangeFromAtoN) != undefined;
+                    if (!aHasNeededPower) {
+                        eliminated.push(nActor.id);
+                        knownGameState.grid[nSquare.ty][nSquare.tx].removePossibleActor(nActor.id);
+                    }
+                }
+                if (eliminated.length > 0) {
+                    solverStats.features.shiftedUnknownSquaresTiedTogether++;
+                    solverLog(`Power difference ${powerChangeFromAtoN} between ${nSquare.ty} ${nSquare.tx} - ${aSquare.ty} ${aSquare.tx}  eliminates ${eliminated} from the former`);
+                    eliminated = [];
+                }
+
+            }
+            // v3
+            else if (aNeighbors.length == 1) {
+                let aSquare = getActorAt(decodeForSet(aNeighbors[0])[1], decodeForSet(aNeighbors[0])[0]);
+                let aWorstcasePower = knownGameState.grid[aSquare.ty][aSquare.tx].worstCasePower();
+                // all nNeighbors are at most aWorstCasePower + powerChangeFromAtoN
+                let powerLimit = aWorstcasePower + powerChangeFromAtoN;
+
+                let eliminated = false;
+                for (let nn of nNeighbors) {
+                    let nSquare = getActorAt(decodeForSet(nn)[1], decodeForSet(nn)[0]);
+                    for (let nActor of knownGameState.grid[nSquare.ty][nSquare.tx].possibleActors) {
+                        if (nActor.monsterLevel > powerLimit) {
+                            eliminated = true;
+                            knownGameState.grid[nSquare.ty][nSquare.tx].removePossibleActor(nActor.id);
+                        }
+                    }
+                }
+
+                if (eliminated) {
+                    solverStats.features.shiftedUnknownSquaresBoundByAnother++;
+                    solverLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx} rules out enemies with power > ${powerLimit} from unshared unknown squares neighboring the former`);
+                }
+            }
+            else if (nNeighbors.length == 1) {
+                let nSquare = getActorAt(decodeForSet(nNeighbors[0])[1], decodeForSet(nNeighbors[0])[0]);
+                let nWorstcasePower = knownGameState.grid[nSquare.ty][nSquare.tx].worstCasePower();
+                // all aNeighbors are at most nWorstCasePower - powerChangeFromAtoN
+                let powerLimit = nWorstcasePower - powerChangeFromAtoN;
+
+                let eliminated = false;
+                for (let na of aNeighbors) {
+                    let aSquare = getActorAt(decodeForSet(na)[1], decodeForSet(na)[0]);
+                    for (let aActor of knownGameState.grid[aSquare.ty][aSquare.tx].possibleActors) {
+                        if (aActor.monsterLevel > powerLimit) {
+                            eliminated = true;
+                            knownGameState.grid[aSquare.ty][aSquare.tx].removePossibleActor(aActor.id);
+                        }
+                    }
+                }
+
+                if (eliminated) {
+                    solverStats.features.shiftedUnknownSquaresBoundByAnother++;
+                    solverLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx}  rules out enemies with power > ${powerLimit} from unshared unknown squares neighboring the latter`);
                 }
             }
         }
@@ -3006,6 +3101,51 @@ function updateKnownGameState() {
                     knownGameState.grid[u.ty][u.tx].possibleActors = [makeActor(ActorId.Mine)];
                 }
                 break;
+            }
+        }
+    }
+
+    // if a square A needs X more mines
+    // and a neighbor B shares all but Y mine-capable squares with us
+    // then these squares will contain at least X-Y mines
+    // and if B needs just as many mines, then there are no mines in its other neighbors
+    for (let a of state.actors.filter(a => getVisibleAttackNumber(a) >= 100)) {
+        let need = Math.floor(getVisibleAttackNumber(a) / 100);
+        let missing = need - getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].knownActor() == ActorId.Mine).length;
+
+        if (missing == 0) {
+            continue;
+        }
+
+        let plausibleMines = getNeighborsWithDiagonals(a.tx, a.ty).filter(s => knownGameState.grid[s.ty][s.tx].couldBe(ActorId.Mine) && knownGameState.grid[s.ty][s.tx].knownActor() == null);
+
+        for (let n of getNeighborsWithDiagonals(a.tx, a.ty)) {
+            let nv = getVisibleAttackNumber(n);
+            if (nv == null) {
+                continue;
+            }
+            let neiNeed = Math.floor(nv / 100);
+            let neiMiss = neiNeed - getNeighborsWithDiagonals(n.tx, n.ty).filter(n => knownGameState.grid[n.ty][n.tx].knownActor() == ActorId.Mine).length;
+
+            if (neiMiss == 0) {
+                continue; // mines cleared out anyway
+            }
+
+            let unshared = plausibleMines.filter(m => distance(n.tx, n.ty, m.tx, m.ty) > 1.5);
+            let sharedMines = missing - unshared.length;
+
+            if (sharedMines < neiMiss) {
+                continue;
+            }
+
+            let neighborUnshared = getNeighborsWithDiagonals(n.tx, n.ty).filter(u => distance(a.tx, a.ty, u.tx, u.ty) > 1.5 && knownGameState.grid[u.ty][u.tx].knownActor() != ActorId.Mine && knownGameState.grid[u.ty][u.tx].couldBe(ActorId.Mine));
+
+            if (neighborUnshared.length > 0) {
+                solverLog(`Hint ${a.ty} ${a.tx} missing ${missing} mines shares at least ${sharedMines} with hint ${n.ty} ${n.tx}, which means their unshared neighbors are not mines`);
+                solverStats.features.sharedMinesForceOthersOut++;
+                for (let u of neighborUnshared) {
+                    knownGameState.grid[u.ty][u.tx].removePossibleActor(ActorId.Mine);
+                }
             }
         }
     }
@@ -3448,7 +3588,7 @@ function explorationPhaseClick() {
         let hailMary = hailMaryClickActor();
         if (hailMary != null) {
             solverStats.tookRisk = true;
-            solverLog(`Could maybe hit a boring enemy ${targetBoringE != null}, but we are panicking, go for hail mary at ${hailMary.ty} ${hailMary.tx} with survival probability ${knownGameState.grid[hailMary.ty][hailMary.tx].survivalProbability()}`);
+            solverLog(`Could maybe hit a boring enemy (${targetBoringE != null}), but we are panicking, go for hail mary at ${hailMary.ty} ${hailMary.tx} with survival probability ${knownGameState.grid[hailMary.ty][hailMary.tx].survivalProbability()}`);
             return getActorIndexAt(hailMary.tx, hailMary.ty);
         }
     }
