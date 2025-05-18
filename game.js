@@ -4,6 +4,7 @@
 
 let RELEASE = true;
 let debugOn = false;
+let knowledgeUpdateLoggingOn = true;
 let solverLoggingOn = true;
 let debugLines = [];
 let fontDebug;
@@ -1854,6 +1855,12 @@ function getAttackNumber(tx, ty) {
 
 const SOLVER_WANTS_TO_LEVEL_UP_ACTOR_INDEX = -47;
 
+function knowledgeUpdateLog(msg) {
+    if (knowledgeUpdateLoggingOn) {
+        console.log(msg);
+    }
+}
+
 function solverLog(msg) {
     if (solverLoggingOn) {
         console.log(msg);
@@ -2080,7 +2087,7 @@ class KnownGameState {
 
     disarmMines() {
         this.minesDisarmed = true;
-        solverLog("Disarming mines");
+        knowledgeUpdateLog("Disarming mines");
         for (let i = 0; i < state.gridH; ++i) {
             for (let k = 0; k < state.gridW; ++k) {
                 if (knownGameState.grid[i][k].knownActor() == ActorId.Mine) {
@@ -2115,7 +2122,7 @@ class KnownGameState {
             return;
         }
         this.wizardClearedExcept = except.length;
-        solverLog(`Clearing out wizard possibility from the grid except ${except}`);
+        knowledgeUpdateLog(`Clearing out wizard possibility from the grid except ${except}`);
         for (let y = 0; y < state.gridH; ++y) {
             for (let x = 0; x < state.gridW; ++x) {
                 if (except.find((e) => e[0] == y && e[1] == x) == undefined) {
@@ -2126,13 +2133,13 @@ class KnownGameState {
     }
 
     foundWizard(tx, ty) {
-        solverLog(`Found wizard at ${ty}, ${tx}`);
+        knowledgeUpdateLog(`Found wizard at ${ty}, ${tx}`);
         this.wizardFound = true;
         this.grid[ty][tx].possibleActors = [makeActor(ActorId.Wizard)];
         this.clearWizard([[ty, tx]]);
         for (let n of getNeighborsWithDiagonals(tx, ty)) {
             if (!n.revealed && this.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
-                solverLog(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
+                knowledgeUpdateLog(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
                 this.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
             }
         }
@@ -2170,7 +2177,7 @@ class KnownGameState {
         else if (intersectionWizards.length == 1) {
             const ty = intersectionWizards[0].ty;
             const tx = intersectionWizards[0].tx;
-            solverLog(`Intersection of all slime neighbors yields only one possible wizard ${ty} ${tx}`);
+            knowledgeUpdateLog(`Intersection of all slime neighbors yields only one possible wizard ${ty} ${tx}`);
             this.foundWizard(tx, ty);
             return;
         }
@@ -2197,7 +2204,7 @@ class KnownGameState {
                     const twiny = possibleTwins[0].ty;
                     const tx = Math.floor((sx + twinx) / 2);
                     const ty = Math.floor((sy + twiny) / 2);
-                    solverLog(`Edge slime at ${sy} ${sx} has only one candidate twin ${twiny} ${twinx}`);
+                    knowledgeUpdateLog(`Edge slime at ${sy} ${sx} has only one candidate twin ${twiny} ${twinx}`);
                     this.foundWizard(tx, ty);
                     solverStats.features.edgeSlimeDetections++;
                     return;
@@ -2209,7 +2216,7 @@ class KnownGameState {
                     // only 1 place for the wizard
                     const ty = possibleWizards[0].ty;
                     const tx = possibleWizards[0].tx;
-                    solverLog(`Edge slime at ${sy} ${sx} has only one possible wizard ${ty} ${tx}`);
+                    knowledgeUpdateLog(`Edge slime at ${sy} ${sx} has only one possible wizard ${ty} ${tx}`);
                     this.foundWizard(tx, ty);
                     solverStats.features.edgeSlimeDetections++;
                     return;
@@ -2227,7 +2234,7 @@ class KnownGameState {
             if (neiAdjSlimes.length == 1) {
                 let n = neiAdjSlimes[0];
                 if (!n.revealed && knownGameState.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
-                    solverLog(`Non-edge slime ${s.ty} ${s.tx} can only have non-edge slime neighbor on ${n.ty} ${n.tx}`);
+                    knowledgeUpdateLog(`Non-edge slime ${s.ty} ${s.tx} can only have non-edge slime neighbor on ${n.ty} ${n.tx}`);
                     solverStats.features.adjSlimeDetections++;
                     knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
                 }
@@ -2240,7 +2247,7 @@ class KnownGameState {
                 if ((s.tx != 1 && s.tx != state.gridW - 2) || (s.ty != 1 && s.ty != state.gridH - 2)) {
                     if (!getActorAt(nnx, nny).revealed && knownGameState.grid[nny][nnx].knownActor() != ActorId.BigSlime) {
 
-                        solverLog(`Non-edge non-corner slime ${s.ty} ${s.tx} can only have slime step-neighbor on ${nny} ${nnx}`);
+                        knowledgeUpdateLog(`Non-edge non-corner slime ${s.ty} ${s.tx} can only have slime step-neighbor on ${nny} ${nnx}`);
                         solverStats.features.adjSlimeDetections++;
                         knownGameState.grid[nny][nnx].possibleActors = [makeActor(ActorId.BigSlime)];
                     }
@@ -2256,7 +2263,7 @@ class KnownGameState {
                         let x = can_nn ? nnx : onx;
                         let y = can_nn ? nny : ony;
                         if (!getActorAt(x, y).revealed && knownGameState.grid[y][x].knownActor() != ActorId.BigSlime) {
-                            solverLog(`Non-edge corner slime ${s.ty} ${s.tx} will have other neighbor ${y} ${x}, because edge neighbor is ${can_on} and step-neighbor is ${can_nn}`);
+                            knowledgeUpdateLog(`Non-edge corner slime ${s.ty} ${s.tx} will have other neighbor ${y} ${x}, because edge neighbor is ${can_on} and step-neighbor is ${can_nn}`);
                             solverStats.features.adjSlimeDetections++;
                             knownGameState.grid[y][x].possibleActors = [makeActor(ActorId.BigSlime)];
                         }
@@ -2302,13 +2309,13 @@ class KnownGameState {
 
                 if (diff == undefined) {
                     unique = false;
-                    // solverLog(`Possible gazer ${g.ty} ${g.tx} covers the same ? as ${other.ty} ${other.tx}, not guessing it`);
+                    // knowledgeUpdateLog(`Possible gazer ${g.ty} ${g.tx} covers the same ? as ${other.ty} ${other.tx}, not guessing it`);
                     break;
                 }
 
             }
             if (unique) {
-                solverLog(`Guessing gazer at ${g.ty}, ${g.tx} because it matches ${mostQuestionMarks} question marks that no other does`);
+                knowledgeUpdateLog(`Guessing gazer at ${g.ty}, ${g.tx} because it matches ${mostQuestionMarks} question marks that no other does`);
                 return getActorIndexAt(g.tx, g.ty);
             }
         }
@@ -2517,7 +2524,7 @@ function updateKnownGameState() {
         for (let a of state.actors.filter((a) => looksLikeClosedChest(a) && knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Mimic))) {
             let mino_neigh = getNeighborsWithDiagonals(a.tx, a.ty).find((n) => knownGameState.grid[n.ty][n.tx].couldBeOrWas(ActorId.Minotaur));
             if (mino_neigh == undefined) {
-                solverLog(`Chest at ${a.ty} ${a.tx} is mimic because no minotaur neighbor`);
+                knowledgeUpdateLog(`Chest at ${a.ty} ${a.tx} is mimic because no minotaur neighbor`);
                 solverStats.features.mimicsFoundByMinotaurs++;
                 knownGameState.grid[a.ty][a.tx].possibleActors = [makeActor(ActorId.Mimic)];
             }
@@ -2527,7 +2534,7 @@ function updateKnownGameState() {
             let a = state.actors[i];
 
             if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Mimic) {
-                solverLog(`Found mimic at ${a.ty}, ${a.tx}`);
+                knowledgeUpdateLog(`Found mimic at ${a.ty}, ${a.tx}`);
                 knownGameState.mimicFound = [a.ty, a.tx];
                 for (let y = 0; y < state.gridH; ++y) {
                     for (let x = 0; x < state.gridW; ++x) {
@@ -2544,9 +2551,9 @@ function updateKnownGameState() {
     if (!knownGameState.loversFound) {
         for (let a of state.actors) {
             if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Giant) {
-                solverLog(`Found lover at ${a.ty}, ${a.tx}`);
+                knowledgeUpdateLog(`Found lover at ${a.ty}, ${a.tx}`);
                 const other_x = state.gridW - a.tx - 1;
-                solverLog(`So other lover is at ${a.ty}, ${other_x}`);
+                knowledgeUpdateLog(`So other lover is at ${a.ty}, ${other_x}`);
                 knownGameState.loversFound = true;
 
                 knownGameState.grid[a.ty][other_x].possibleActors = [makeActor(ActorId.Giant)];
@@ -2582,7 +2589,7 @@ function updateKnownGameState() {
             if (twins.length == 1) {
                 let twin = twins[0];
                 if (knownGameState.grid[twin.ty][twin.tx].knownActor() == null) {
-                    solverLog(`Gargoyle at ${a.ty} ${a.tx} has only one twin option left: ${twin.ty} ${twin.tx}`);
+                    knowledgeUpdateLog(`Gargoyle at ${a.ty} ${a.tx} has only one twin option left: ${twin.ty} ${twin.tx}`);
                     knownGameState.grid[twin.ty][twin.tx].possibleActors = [makeActor(ActorId.Gargoyle)];
                     solverStats.features.gargoylesSpotted++;
                 }
@@ -2678,7 +2685,7 @@ function updateKnownGameState() {
                 continue;
             }
             let n = unknown_neighs[0];
-            solverLog(`Wall ${a.ty}, ${a.tx} found neighbor at ${n.ty}, ${n.tx}`);
+            knowledgeUpdateLog(`Wall ${a.ty}, ${a.tx} found neighbor at ${n.ty}, ${n.tx}`);
             knownGameState.grid[a.ty][a.tx].wallNeighborFound = true;
             knownGameState.grid[n.ty][n.tx].wallNeighborFound = true;
             knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Wall)];
@@ -2699,7 +2706,7 @@ function updateKnownGameState() {
         const possibleMineNeighs = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].couldBe(ActorId.Mine));
 
         if (possibleMineNeighs.length == numMines) {
-            solverLog(`Need ${numMines} mines around ${a.ty}, ${a.tx} and exactly as many spots!`);
+            knowledgeUpdateLog(`Need ${numMines} mines around ${a.ty}, ${a.tx} and exactly as many spots!`);
             knownGameState.grid[a.ty][a.tx].neighborMinesPopulated = true;
             for (let n of possibleMineNeighs) {
                 knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.Mine)];
@@ -2716,7 +2723,7 @@ function updateKnownGameState() {
                 continue;
             }
 
-            solverLog(`Found guard in quadrant y=${yq} x=${xq}`);
+            knowledgeUpdateLog(`Found guard in quadrant y=${yq} x=${xq}`);
 
             for (let x = xq * 7; x < xq * 7 + 6; ++x) {
                 for (let y = yq * 5; y < yq * 5 + 4 + yq; ++y) {
@@ -2734,7 +2741,7 @@ function updateKnownGameState() {
     if (!knownGameState.bigSlimesFound) {
         for (let a of state.actors) {
             if (knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.BigSlime) {
-                solverLog(`Spotted a big slime, clearing out far away squares`);
+                knowledgeUpdateLog(`Spotted a big slime, clearing out far away squares`);
                 knownGameState.bigSlimesFound = true;
                 for (let i = 0; i < state.gridH; ++i) {
                     for (let k = 0; k < state.gridW; ++k) {
@@ -2749,7 +2756,7 @@ function updateKnownGameState() {
 
     // Remove possibility of revealed entities from spaces which don't contain them
     for (let revealed of knownGameState.revealedBySpells) {
-        solverLog(`Cleaning out non-revealed instances of ${revealed}`);
+        knowledgeUpdateLog(`Cleaning out non-revealed instances of ${revealed}`);
         for (let y = 0; y < state.gridH; y++) {
             for (let x = 0; x < state.gridW; x++) {
                 if (knownGameState.grid[y][x].knownActor() != revealed) {
@@ -2768,7 +2775,7 @@ function updateKnownGameState() {
     if (!knownGameState.ratKingFound && knownGameState.turn5IntoRatKing) {
         let candidate = state.actors.find((a) => !a.revealed && knownGameState.grid[a.ty][a.tx].knownPower() == 5 && knownGameState.grid[a.ty][a.tx].knownActor() != ActorId.Gazer);
         if (candidate != undefined) {
-            solverLog(`Slimes have been cleared and we found a 5, so it's the rat king: ${candidate.ty} ${candidate.tx}`);
+            knowledgeUpdateLog(`Slimes have been cleared and we found a 5, so it's the rat king: ${candidate.ty} ${candidate.tx}`);
             knownGameState.grid[candidate.ty][candidate.tx].possibleActors = [makeActor(ActorId.RatKing)];
             knownGameState.ratKingFound = true;
             knownGameState.turn5IntoRatKing = false;
@@ -2781,7 +2788,7 @@ function updateKnownGameState() {
         let canEgg = neighs.filter((n) => knownGameState.grid[n.ty][n.tx].couldBe(ActorId.DragonEgg));
         if (canEgg.length == 1) {
             let n = canEgg[0];
-            solverLog(`Found the dragon egg at ${n.ty} ${n.tx}`);
+            knowledgeUpdateLog(`Found the dragon egg at ${n.ty} ${n.tx}`);
             knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.DragonEgg)];
         }
     }
@@ -2796,7 +2803,7 @@ function updateKnownGameState() {
             let possible = corners.filter((s) => s.couldBe(ActorId.MineKing));
             if (possible.length == 1) {
                 let p = possible[0];
-                solverLog(`MineKing must be at ${p.ty} ${p.tx}`);
+                knowledgeUpdateLog(`MineKing must be at ${p.ty} ${p.tx}`);
                 knownGameState.grid[p.ty][p.tx].possibleActors = [makeActor(ActorId.MineKing)];
                 knownGameState.mineKingFound = true;
             }
@@ -2821,7 +2828,7 @@ function updateKnownGameState() {
                 ruled_out ||= possible.filter(p => distance(p.tx, p.ty, a.tx, a.ty) == 1 && knownGameState.grid[p.ty][p.tx].couldBeOrWas(ActorId.BigSlime)).length < 2;
             }
             if (ruled_out) {
-                // solverLog(`No bigslime at ${a.ty} ${a.tx}`);
+                // knowledgeUpdateLog(`No bigslime at ${a.ty} ${a.tx}`);
                 knownGameState.grid[a.ty][a.tx].removePossibleActor(ActorId.BigSlime);
             }
         }
@@ -2831,7 +2838,7 @@ function updateKnownGameState() {
             knownGameState.wizardFound = true;
             for (let n of getNeighborsWithDiagonals(maybeWizard.tx, maybeWizard.ty)) {
                 if (!n.revealed && knownGameState.grid[n.ty][n.tx].knownActor() != ActorId.BigSlime) {
-                    solverLog(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
+                    knowledgeUpdateLog(`Wizard reveals big slime at ${n.ty} ${n.tx}`);
                     knownGameState.grid[n.ty][n.tx].possibleActors = [makeActor(ActorId.BigSlime)];
                 }
             }
@@ -2846,7 +2853,7 @@ function updateKnownGameState() {
         let gazers = state.actors.filter((g) => distance(a.tx, a.ty, g.tx, g.ty) <= 2 && knownGameState.grid[g.ty][g.tx].couldBe(ActorId.Gazer));
         if (gazers.length == 1 && knownGameState.grid[gazers[0].ty][gazers[0].tx].knownActor() != ActorId.Gazer) {
             let g = gazers[0];
-            solverLog(`Gazer pinpointed at ${g.ty} ${g.tx} - only possibility to show ? at ${a.ty} ${a.tx}`);
+            knowledgeUpdateLog(`Gazer pinpointed at ${g.ty} ${g.tx} - only possibility to show ? at ${a.ty} ${a.tx}`);
             knownGameState.grid[g.ty][g.tx].possibleActors = [makeActor(ActorId.Gazer)]
         } else if (gazers.length == 0) {
             solverLogError(`ERROR: ? without possible gazer in range: ${a.ty} ${a.tx}`);
@@ -2876,7 +2883,7 @@ function updateKnownGameState() {
         if (knownGameState.grid[a.ty][a.tx].isOrWas(ActorId.Chest)) {
             let mino = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].couldBeOrWas(ActorId.Minotaur));
             if (mino.length == 1 && knownGameState.grid[mino[0].ty][mino[0].tx].knownActor() == null) {
-                solverLog(`Chest ${a.ty} ${a.tx} pinpoints a minotaur at ${mino[0].ty} ${mino[0].tx}`);
+                knowledgeUpdateLog(`Chest ${a.ty} ${a.tx} pinpoints a minotaur at ${mino[0].ty} ${mino[0].tx}`);
                 knownGameState.grid[mino[0].ty][mino[0].tx].possibleActors = [makeActor(ActorId.Minotaur)];
                 solverStats.chestsSpottingMinotaurs++;
             }
@@ -2885,7 +2892,7 @@ function updateKnownGameState() {
         if (knownGameState.grid[a.ty][a.tx].isOrWas(ActorId.Minotaur)) {
             let chest = getNeighborsWithDiagonals(a.tx, a.ty).filter((n) => knownGameState.grid[n.ty][n.tx].couldBeOrWas(ActorId.Chest));
             if (chest.length == 1 && knownGameState.grid[chest[0].ty][chest[0].tx].knownPower() == null) {
-                solverLog(`Minotaur ${a.ty} ${a.tx} pinpoints a chest at ${chest[0].ty} ${chest[0].tx}`);
+                knowledgeUpdateLog(`Minotaur ${a.ty} ${a.tx} pinpoints a chest at ${chest[0].ty} ${chest[0].tx}`);
                 knownGameState.grid[chest[0].ty][chest[0].tx].possibleActors = [makeActor(ActorId.Chest)];
                 solverStats.minotaursSpottingChests++;
             }
@@ -2941,7 +2948,7 @@ function updateKnownGameState() {
                 let missingPower = missing[a.ty][a.tx].has(deduce) ? unknown[a.ty][a.tx] : unknown[n.ty][n.tx];
                 let deducedPower = missingPower - unknownIntersectionPower;
 
-                solverLog(`${a.ty} ${a.tx} and ${n.ty} ${n.tx} share all unknown squares apart from ${yx[0]} ${yx[1]}, shared power is ${unknownIntersectionPower}, and since in total they are ${missingPower} it must be ${deducedPower}`);
+                knowledgeUpdateLog(`${a.ty} ${a.tx} and ${n.ty} ${n.tx} share all unknown squares apart from ${yx[0]} ${yx[1]}, shared power is ${unknownIntersectionPower}, and since in total they are ${missingPower} it must be ${deducedPower}`);
                 knownGameState.grid[yx[0]][yx[1]].possibleActors = knownGameState.grid[yx[0]][yx[1]].possibleActors.filter((a) => a.monsterLevel == deducedPower);
                 solverStats.features.deducedOddOneOut++;
                 continue;
@@ -3000,7 +3007,7 @@ function updateKnownGameState() {
                 }
                 if (eliminated.length > 0) {
                     solverStats.features.shiftedUnknownSquaresTiedTogether++;
-                    solverLog(`Power difference ${powerChangeFromAtoN} between ${nSquare.ty} ${nSquare.tx} - ${aSquare.ty} ${aSquare.tx}  eliminates ${eliminated} from the latter`);
+                    knowledgeUpdateLog(`Power difference ${powerChangeFromAtoN} between ${nSquare.ty} ${nSquare.tx} - ${aSquare.ty} ${aSquare.tx}  eliminates ${eliminated} from the latter`);
                     eliminated = [];
                 }
 
@@ -3013,7 +3020,7 @@ function updateKnownGameState() {
                 }
                 if (eliminated.length > 0) {
                     solverStats.features.shiftedUnknownSquaresTiedTogether++;
-                    solverLog(`Power difference ${powerChangeFromAtoN} between ${nSquare.ty} ${nSquare.tx} - ${aSquare.ty} ${aSquare.tx}  eliminates ${eliminated} from the former`);
+                    knowledgeUpdateLog(`Power difference ${powerChangeFromAtoN} between ${nSquare.ty} ${nSquare.tx} - ${aSquare.ty} ${aSquare.tx}  eliminates ${eliminated} from the former`);
                     eliminated = [];
                 }
 
@@ -3038,7 +3045,7 @@ function updateKnownGameState() {
 
                 if (eliminated) {
                     solverStats.features.shiftedUnknownSquaresBoundByAnother++;
-                    solverLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx} rules out enemies with power > ${powerLimit} from unshared unknown squares neighboring the former`);
+                    knowledgeUpdateLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx} rules out enemies with power > ${powerLimit} from unshared unknown squares neighboring the former`);
                 }
             }
             else if (nNeighbors.length == 1) {
@@ -3060,7 +3067,7 @@ function updateKnownGameState() {
 
                 if (eliminated) {
                     solverStats.features.shiftedUnknownSquaresBoundByAnother++;
-                    solverLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx}  rules out enemies with power > ${powerLimit} from unshared unknown squares neighboring the latter`);
+                    knowledgeUpdateLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx}  rules out enemies with power > ${powerLimit} from unshared unknown squares neighboring the latter`);
                 }
             }
         }
@@ -3095,7 +3102,7 @@ function updateKnownGameState() {
             let unshared = plausibleMines.filter(m => distance(n.tx, n.ty, m.tx, m.ty) > 1.5);
 
             if (unshared.length == needToPutSomewhereElse) {
-                solverLog(`${needToPutSomewhereElse} mines surrounding ${a.ty} ${a.tx} need to be placed away from ${n.ty} ${n.tx}`);
+                knowledgeUpdateLog(`${needToPutSomewhereElse} mines surrounding ${a.ty} ${a.tx} need to be placed away from ${n.ty} ${n.tx}`);
                 solverStats.features.deducedOddMineOut++;
                 for (let u of unshared) {
                     knownGameState.grid[u.ty][u.tx].possibleActors = [makeActor(ActorId.Mine)];
@@ -3141,7 +3148,7 @@ function updateKnownGameState() {
             let neighborUnshared = getNeighborsWithDiagonals(n.tx, n.ty).filter(u => distance(a.tx, a.ty, u.tx, u.ty) > 1.5 && knownGameState.grid[u.ty][u.tx].knownActor() != ActorId.Mine && knownGameState.grid[u.ty][u.tx].couldBe(ActorId.Mine));
 
             if (neighborUnshared.length > 0) {
-                solverLog(`Hint ${a.ty} ${a.tx} missing ${missing} mines shares at least ${sharedMines} with hint ${n.ty} ${n.tx}, which means their unshared neighbors are not mines`);
+                knowledgeUpdateLog(`Hint ${a.ty} ${a.tx} missing ${missing} mines shares at least ${sharedMines} with hint ${n.ty} ${n.tx}, which means their unshared neighbors are not mines`);
                 solverStats.features.sharedMinesForceOthersOut++;
                 for (let u of neighborUnshared) {
                     knownGameState.grid[u.ty][u.tx].removePossibleActor(ActorId.Mine);
@@ -3160,13 +3167,13 @@ function updateKnownGameState() {
     if (!knownGameState.allRevealed) {
         knownGameState.allRevealed = state.actors.every((a) => knownGameState.grid[a.ty][a.tx].knownPower() != undefined);
         if (knownGameState.allRevealed) {
-            solverLog(`All powers on board are known`);
+            knowledgeUpdateLog(`All powers on board are known`);
         }
     }
 
     const currentUpdatePossibilities = knownGameState.totalPossibilities();
     knownGameState.lastUpdateWasMeaningful = (currentUpdatePossibilities != knownGameState.lastUpdatePossibilities);
-    // solverLog(`Just had a meaningful update: ${knownGameState.lastUpdateWasMeaningful}, ${knownGameState.lastUpdatePossibilities} -> ${currentUpdatePossibilities}`);
+    // knowledgeUpdateLog(`Just had a meaningful update: ${knownGameState.lastUpdateWasMeaningful}, ${knownGameState.lastUpdatePossibilities} -> ${currentUpdatePossibilities}`);
     knownGameState.lastUpdatePossibilities = currentUpdatePossibilities;
 }
 
