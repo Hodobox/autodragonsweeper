@@ -3274,7 +3274,7 @@ function computeRevealValue(a) {
         return -1;
     }
 
-    if (knownGameState.grid[a.ty][a.tx].knownPower() != undefined && numberWithSameUnknownNeighborExists(a)) {
+    if (knownGameState.grid[a.ty][a.tx].knownPower() != null && numberWithSameUnknownNeighborExists(a)) {
         return 0;
     }
 
@@ -3290,12 +3290,12 @@ function computeRevealValue(a) {
     }
 
     // for each unknown neighbor, 0.1 value for each known square around it
-    for (let n of getNeighborsWithDiagonals(a.tx, a.ty).filter((f) => knownGameState.grid[f.ty][f.tx].knownPower() == undefined)) {
-        value += 0.1 * getNeighborsWithDiagonals(n.tx, n.ty).filter((nn) => knownGameState.grid[nn.ty][nn.tx].knownPower() != undefined).length;
+    for (let n of getNeighborsWithDiagonals(a.tx, a.ty).filter((f) => knownGameState.grid[f.ty][f.tx].knownPower() == null)) {
+        value += 0.1 * getNeighborsWithDiagonals(n.tx, n.ty).filter((nn) => knownGameState.grid[nn.ty][nn.tx].knownPower() != null).length;
     }
 
     // 0.2 value if we don't know our power
-    value += 0.2 * (knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
+    value += 0.2 * (knownGameState.grid[a.ty][a.tx].knownPower() == null);
 
     return value;
 }
