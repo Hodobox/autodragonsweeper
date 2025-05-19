@@ -26,7 +26,7 @@ The main additions compared to the original game (v1.1.18):
 
 Looking for a challenge? Take a crack at some seed my solver doesn't solve:
 
-`181675942, 4106662133, 2267233549, 982076172, 103855545, 2600539032, 1236143507, 2117130815, 3968560058, 2730886631, 1663344264, 600097793, 1096928327, 198228856, 1865341857, 861855837, 450948120, 2118337003, 2747216787, 3474109513, 3675091304, 2403529648, 2795602454, 50962058, 38037183, 3495307853, 3553396303`
+`982076172, 103855545, 2600539032, 1236143507, 2117130815, 3968560058, 2730886631, 1663344264, 600097793, 1096928327, 198228856, 1865341857, 861855837, 450948120, 2118337003, 2747216787, 3474109513, 3675091304, 2403529648, 2795602454, 50962058, 181675942, 4106662133, 2267233549, 38037183, 3495307853, 3553396303`
 
 Good luck!
 
@@ -45,7 +45,10 @@ Most hp left when cleared: 13 (happened 6 times)
 Lost without risk: 0
 ```
 
+You can find all the code in my [github repository](https://github.com/Hodobox/autodragonsweeper).
+
 <h4> Coming soon </h4>
 - A section on all the tricks used to glean information about the maze
 - A section on how the solver picks its next move
 - A more detailed section about the solver's performance and how we got there
+- Advanced section (how to add more code? how to test?)
