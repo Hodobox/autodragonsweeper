@@ -1,6 +1,7 @@
 # autodragonsweeper
 
 **All credit for the original game Dragonsweeper goes to Daniel Benmergui.**
+
 Please visit <a href="https://danielben.itch.io/dragonsweeper">https://danielben.itch.io/dragonsweeper</a> for its official release.
 
 <a href="game.html"><img width="50%" src="writeup/autodragonsweeper_example.png " alt="Autodragonsweeper showcase" /></a>
@@ -24,6 +25,7 @@ The main additions compared to the original game (v1.1.18):
     - You can find it in the monsternomicon
 
 Looking for a challenge? Take a crack at some seed my solver doesn't solve:
+
 `181675942, 4106662133, 2267233549, 982076172, 103855545, 2600539032, 1236143507, 2117130815, 3968560058, 2730886631, 1663344264, 600097793, 1096928327, 198228856, 1865341857, 861855837, 450948120, 2118337003, 2747216787, 3474109513, 3675091304, 2403529648, 2795602454, 50962058, 38037183, 3495307853, 3553396303`
 
 Good luck!
