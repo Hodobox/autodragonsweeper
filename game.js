@@ -560,7 +560,7 @@ function newGame() {
     knownGameState = new KnownGameState();
     solverStats = new SolverStats();
     solverStats.seed = state.seed;
-    if (solverTestingStats.length == solverTestingNumGames) {
+    if (solverTesting && solverTestingStats.length == solverTestingNumGames) {
         solverTesting = false;
         console.log(`Done with solver testing`);
     }
@@ -2362,6 +2362,7 @@ class SolverFeatures {
         this.sharedMinesForceOthersOut = 0;
         this.shiftedUnknownSquaresTiedTogether = 0;
         this.shiftedUnknownSquaresBoundByAnother = 0;
+        this.tookLoverWhenNoHeals = 0;
     }
 }
 
@@ -3658,6 +3659,17 @@ function maybeGetNextClick() {
         }
     }
 
+    // If we are unlucky, we may be at 9hp but at risk of dying. In that case, try to hit a lover to prolong our chances
+    if (hp >= 9 && nextLevelXP(state.player.level) - state.player.xp > hp && knownGameState.loversFound && state.actors.find(a => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Medikit) == undefined) {
+        let lovers = state.actors.filter(a => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Giant);
+        lovers.sort((a, b) => computeRevealValue(b) - computeRevealValue(a));
+        if (lovers.length > 0) {
+            solverStats.features.tookLoverWhenNoHeals++;
+            solverLog(`Would die without a heal and we have none, so hitting a lover at ${lovers[0].ty} ${lovers[0].tx}`);
+            return getActorIndexAt(lovers[0].tx, lovers[0].ty);
+        }
+    }
+
     const ratKing = VIPs.find((p) => p.id == ActorId.RatKing);
     if (hp >= 5 && ratKing != undefined) {
         solverLog(`Killing the RatKing`);
@@ -4069,7 +4081,10 @@ function updateGeneratingDungeon(ctx, dt) {
     }
     else {
         generateDungeon();
-        while (!checkLevel()) generateDungeon();
+        while (!checkLevel()) {
+            console.error(`Dungeon generated with seed ${solverStats.seed} was initially invalid!`);
+            generateDungeon();
+        }
 
         // I need this to eat any input events that were queued during generation
         state.waitForFramesAfterGeneration = 1;
@@ -5729,7 +5744,9 @@ function onUpdate(phase, dt) {
             else if (state.status == GameStatus.WinScreen) {
                 updateWinscreen(ctx, dt);
                 if ((solverTesting && Date.now() - lastSolverTestingAction > solverTestingCadenceMs) || gameRandomnessSeeds.length) {
-                    updateSolverTestingStats();
+                    if (solverTesting) {
+                        updateSolverTestingStats();
+                    }
                     newGame();
                 }
             }
