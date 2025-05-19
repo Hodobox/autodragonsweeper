@@ -4082,7 +4082,7 @@ function updateGeneratingDungeon(ctx, dt) {
     else {
         generateDungeon();
         while (!checkLevel()) {
-            console.error(`Dungeon generated with seed ${solverStats.seed} was initially invalid!`);
+            console.error(`Dungeon generated with seed ${state.seed} was initially invalid!`);
             generateDungeon();
         }
 
