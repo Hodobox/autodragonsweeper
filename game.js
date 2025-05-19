@@ -5519,7 +5519,7 @@ function updateWinscreen(ctx, dt) {
     let deltaSecondsAjusted = deltaSeconds % 60;
     let timeStr = "#" + deltaHours + ":" + deltaMinutes + ":" + deltaSecondsAjusted.toString().padStart(2, "0");
 
-    lines.push("");
+    lines.push(`(seed: ${state.seed})`);
     lines.push("score: " + state.player.score + "  (max: " + state.stats.totalXP + ")");
     lines.push(timeStr);
     drawMultiline(ctx, fontWinscreen, lines, r.centerx(), 185, FONT_CENTER | FONT_VCENTER, 6);
