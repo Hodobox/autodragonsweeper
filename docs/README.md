@@ -1,12 +1,3 @@
----
-# Feel free to add content and custom Front Matter to this file.
-# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
-
-layout: home
-permalink: /index
----
-
-
 # autoDragonsweeper
 
 **All credit for the original game Dragonsweeper goes to Daniel Benmergui.**
@@ -33,6 +24,7 @@ The main additions compared to the original game (v1.1.18):
     - Reveal tiles with 0 power
     - Taking xp
     - Level up when at 0hp
+    - Casting spells
     - Opening chests (when known not to be a mimic)
 - Clicking on XP bar performs an action picked by an automated solver
 - Dragon lair is now generated with some integer seed
@@ -63,6 +55,7 @@ Lost without risk: 0
 You can find all the code in my [github repository](https://github.com/Hodobox/autodragonsweeper).
 
 <h4> Coming soon </h4>
+
 - A section on all the tricks used to glean information about the dungeon
 - A section on how the solver picks its next move
 - A more detailed section about the solver's performance and how we got there
