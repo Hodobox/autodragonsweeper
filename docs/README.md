@@ -1,3 +1,12 @@
+---
+# Feel free to add content and custom Front Matter to this file.
+# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
+
+layout: home
+permalink: /index
+---
+
+
 # autodragonsweeper
 
 **All credit for the original game Dragonsweeper goes to Daniel Benmergui.**
