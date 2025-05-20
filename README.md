@@ -6,7 +6,7 @@ Please visit <a href="https://danielben.itch.io/dragonsweeper">https://danielben
 
 <a href="game.html"><img width="50%" src="writeup/autodragonsweeper_example.png " alt="Autodragonsweeper showcase" /></a>
 
-<h1><a href = "game.html"> Click here to play!</a> </h1>
+<h1><a href = "docs/game.html"> Click here to play!</a> </h1>
 
 After enjoying Dragonsweeper a lot, I decided to try and have a crack at solving it programmatically.
 
@@ -48,7 +48,7 @@ Lost without risk: 0
 You can find all the code in my [github repository](https://github.com/Hodobox/autodragonsweeper).
 
 <h4> Coming soon </h4>
-- A section on all the tricks used to glean information about the maze
+- A section on all the tricks used to glean information about the dungeon
 - A section on how the solver picks its next move
 - A more detailed section about the solver's performance and how we got there
 - Advanced section (how to add more code? how to test?)
