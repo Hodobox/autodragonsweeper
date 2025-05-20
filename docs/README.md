@@ -13,7 +13,13 @@ permalink: /index
 
 Please visit <a href="https://danielben.itch.io/dragonsweeper">https://danielben.itch.io/dragonsweeper</a> for its official release.
 
-<a href="game.html"><img width="50%" src="writeup/autodragonsweeper_example.png " alt="Autodragonsweeper showcase" /></a>
+
+<table width="100%">
+  <tr>
+    <td width="50%"> <a href="game.html"> <img src="writeup/autodragonsweeper_example.png " alt="Autodragonsweeper example" /> </a> </td>
+    <td width="50%"> <a href="game.html"> <img src="writeup/autodragonsweeper_showcase.gif" alt="Autodragonsweeper showcase"/> </a> </td>
+  </tr>
+</table>
 
 <h1><a href = "game.html"> Click here to play!</a> </h1>
 
