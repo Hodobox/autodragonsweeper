@@ -7,7 +7,7 @@ permalink: /index
 ---
 
 
-# autodragonsweeper
+# autoDragonsweeper
 
 **All credit for the original game Dragonsweeper goes to Daniel Benmergui.**
 
@@ -15,7 +15,7 @@ Please visit <a href="https://danielben.itch.io/dragonsweeper">https://danielben
 
 <a href="game.html"><img width="50%" src="writeup/autodragonsweeper_example.png " alt="Autodragonsweeper showcase" /></a>
 
-<h1><a href = "docs/game.html"> Click here to play!</a> </h1>
+<h1><a href = "game.html"> Click here to play!</a> </h1>
 
 After enjoying Dragonsweeper a lot, I decided to try and have a crack at solving it programmatically.
 
