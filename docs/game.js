@@ -13,6 +13,7 @@ let lastSolverTestingAction = Date.now();
 /** @type {SolverStats[]} */
 let solverTestingStats = [];
 let solverTestingCadenceMs = 50;
+let solverTestingWaitOnWinscreenMs = solverTestingCadenceMs;
 // For reproducible games
 let gameRandomnessSeeds = [];
 let solverTestingNumGames = 100;
@@ -2672,7 +2673,7 @@ function updateKnownGameState() {
         }
     }
 
-    // Walls with no wall neighbor and last remaining diagonal neighbor -> wall
+    // Walls with no wall neighbor and last remaining cross neighbor -> wall
     for (let a of state.actors) {
         if (knownGameState.grid[a.ty][a.tx].isOrWas(ActorId.Wall) && !knownGameState.grid[a.ty][a.tx].wallNeighborFound) {
             let neighs = getNeighborsCross(a.tx, a.ty);
@@ -3713,6 +3714,10 @@ function maybeGetNextClick() {
         if (explorationClick != null) {
             return explorationClick;
         }
+    }
+
+    if (revealValues == undefined) {
+        populateRevealValues();
     }
 
     // We can't hit anything. Dump damage into lowest HP wall.
@@ -5743,7 +5748,7 @@ function onUpdate(phase, dt) {
             }
             else if (state.status == GameStatus.WinScreen) {
                 updateWinscreen(ctx, dt);
-                if ((solverTesting && Date.now() - lastSolverTestingAction > solverTestingCadenceMs) || gameRandomnessSeeds.length) {
+                if ((solverTesting && Date.now() - lastSolverTestingAction > Math.max(solverTestingCadenceMs, solverTestingWaitOnWinscreenMs)) || gameRandomnessSeeds.length) {
                     if (solverTesting) {
                         updateSolverTestingStats();
                     }
