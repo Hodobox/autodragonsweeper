@@ -92,7 +92,7 @@ Oh, and at the beginning, we of course must know what possible objects could be 
 - Wizard on the edge but not in the corner
 - Big Slime on the edge or near the edge
 - Dragon Egg neighboring the Dragon
-- Dragon in the middle
+- Dragon in the middle. *Well*... Did you notice there are more rows below him than above him? So not quite.
 
 </details>
 
@@ -401,7 +401,7 @@ trying subsets
 
 dual-gazer hunting
 
-<h3> How to not know everything and not have 10 FPS </h3>
+<h3> How to know everything and not have 10 FPS </h3>
 
 Of course, if you take the current known game state and apply all the rules one after the other, you may gain more knowledge, and this knowledge might make it
 possible to obtain more knowledge if you applied them again. So, we want to apply the rules over and over. Initially I was simply running through all the rules
