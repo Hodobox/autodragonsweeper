@@ -173,7 +173,7 @@ neighbor's power is at most A-L
 </table>
 
 - Analogously we can do the same thing from below: if a tile has attack number A, and the
-sum of the maximum possible powers of all neighbors except one is M, then the last unaccounted-for neighbor;s power is at least A-M
+sum of the maximum possible powers of all neighbors except one is M, then the last unaccounted-for neighbor's power is at least A-M
 
 <table width="100%">
   <tr>
@@ -181,7 +181,7 @@ sum of the maximum possible powers of all neighbors except one is M, then the la
     <td width="50%"> <img src="writeup/too_small_after.png" alt="too small after"/> </td>
   </tr>
   <tr>
-    <td colspan="2" width="100%" style="text-align:center"> 111-(100+2+1+2+0s)-6 = 2, so top-left square is at least 2 </td>
+    <td colspan="2" width="100%" style="text-align:center"> 111-(100+2+1+6+s) = 2, so top-left square is at least 2 </td>
   </tr>
 </table>
 
