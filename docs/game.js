@@ -2825,10 +2825,12 @@ function updateKnownGameState() {
             }
             // must have at least 1 non-edge neighbor slime
             let ruled_out = !isCorner(a.tx, a.ty) && nonEdges.find(p => distance(p.tx, p.ty, a.tx, a.ty) == 1 && knownGameState.grid[p.ty][p.tx].couldBeOrWas(ActorId.BigSlime)) == undefined;
+            ruled_out ||= isCorner(a.tx, a.ty) && edges.find(p => distance(p.tx, p.ty, a.tx, a.ty) == 1 && knownGameState.grid[p.ty][p.tx].couldBeOrWas(ActorId.BigSlime)) == undefined;
             // non-edge slime must have at least 2
             if (!isEdge(a.tx, a.ty)) {
                 ruled_out ||= possible.filter(p => distance(p.tx, p.ty, a.tx, a.ty) == 1 && knownGameState.grid[p.ty][p.tx].couldBeOrWas(ActorId.BigSlime)).length < 2;
             }
+            // corner slime needs at least 1 edge slime
             if (ruled_out) {
                 // knowledgeUpdateLog(`No bigslime at ${a.ty} ${a.tx}`);
                 knownGameState.grid[a.ty][a.tx].removePossibleActor(ActorId.BigSlime);

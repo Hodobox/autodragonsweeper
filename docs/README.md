@@ -33,22 +33,26 @@ The main additions compared to the original game (v1.1.18):
 
 Looking for a challenge? Take a crack at some seed my solver doesn't solve:
 
+v17:
 `982076172, 103855545, 2600539032, 1236143507, 2117130815, 3968560058, 2730886631, 1663344264, 600097793, 1096928327, 198228856, 1865341857, 861855837, 450948120, 2118337003, 2747216787, 3474109513, 3675091304, 2403529648, 2795602454, 50962058, 181675942, 4106662133, 2267233549, 38037183, 3495307853, 3553396303`
+
+v18:
+`2053242367, 1942864448, 737164330, 2263168761, 1350173042, 3736902895, 693304165, 848014395, 2226969393, 452132014, 2662640291, 626331229, 2926256338, 3623990632, 1849632308, 4199661045, 3069707154`
 
 Good luck!
 
-Some quick statistics about the latest iteration of the solver:
+Some quick statistics about the latest iteration of the solver (v18):
 
 ```none
-1000 games: 984 won, 922 cleared (62 won but failed to clear)
-Had to risk it in 0.4% of won games; 3.2% when no clear, 0.2% when clear
-Average early wall hits: 0.32 when cleared, 1.60 when won without clear, 1.12 when lost
-Average mine king delay: 0.23 when cleared, 1.05 when won without clear
-When lost, on average had 45.19 score
-When won without clear, on average had 362.16 score
-When won without clear, on average had 4.71 damage to go
-When cleared, on average had 5.97 hp left over
-Most hp left when cleared: 13 (happened 6 times)
+1000 games: 983 won, 926 cleared (57 won but failed to clear)
+Had to risk it in 0.8% of won games; 7.0% when no clear, 0.4% when clear
+Average early wall hits: 0.27 when cleared, 1.21 when won without clear, 1.12 when lost
+Average mine king delay: 0.21 when cleared, 0.86 when won without clear
+When lost, on average had 46.59 score
+When won without clear, on average had 362.98 score
+When won without clear, on average had 3.51 damage to go
+When cleared, on average had 6.08 hp left over
+Most hp left when cleared: 13 (happened 5 times)
 Lost without risk: 0
 ```
 
@@ -330,7 +334,8 @@ If you find a chest, and you didn't find a minotaur near it, and there is only 1
   </tr>
 </table>
 
-This never happens. In the couple thousand games I've tested, this rule was not triggered even once. I can force it if I purposefuly try to set it up though!
+This basically never happens. In the couple thousand games I've tested, this rule was not triggered even once.
+I can force it if I purposefuly try to set it up though!
 
 What does happen is a fun corollary - a chest without any minotaur around it is definitely a mimic.
 
@@ -361,17 +366,95 @@ If you spot a guard, he's the only one in that quadrant (isolated by the central
 </table>
 
 
-<h3> Hunt for the wizard </h3>
+<h3> Hunt for the Wizard </h3>
 
-Slimes too far
+The Wizard and his Big Slimes are a unique configuration. We need to be able to spot him through the Big Slimes, because punching
+through them takes loads of hp.
 
-no neighbor slime
+<img src="writeup/wizard.png" alt="wizard">
 
-adj slime
+Once we spot the Wizard, we can also tell that all unrevealed tiles surrounding him are Big Slimes.
 
-edge slimes
+So firstly, because Big Slimes are always together, after we spot one, we can rule them out from any tile that is far away from it.
+The most distant pair of Big Slimes is separated by a distance of sqrt(5). So, rule out BigSlimes from tiles further than that from the one
+we found.
 
-intersection
+Secondly, a Big Slime always cross-neighbors another Big Slime. Slightly more strongly, a Big Slime not on the edge must have 2 Big Slime neighbors,
+a Big Slime in the corner must have 1 on the edge, and other Big Slimes on the edge must have 1 that is not on the edge.
+So, if we have a tile where we think a Big Slime could be, and there aren't enough tiles around it
+where Big Slimes could be to satisfy this requirement, we can rule it out from there.
+
+<table width="100%">
+  <tr>
+    <td width="50%"> <img src="writeup/bigslime_neighbor_before.png " alt="bigslime neighbor before" />  </td>
+    <td width="50%"> <img src="writeup/bigslime_neighbor_after.png" alt="bigslime neighbor after"/> </td>
+  </tr>
+  <tr>
+    <td colspan="2" width="100%" style="text-align:center"> 5:8 tile not on the edge might be a BigSlime <br>
+    But, because at most 1 neighbor can be a BigSlime, it isn't </td>
+  </tr>
+</table>
+
+Now that we have done our best to figure out which tiles are (or could be) Big Slimes, let's try to pinpoint the wizard.
+
+The most generic check we will do is the following: the Wizard must be a neighbor of every Big Slime. So, get the tiles which are neighbors
+of all Big Slimes we have found, and could be the Wizard. If there's only one, that's where he is! Otherwise, we can at least cut down the
+possible locations of the Wizard to the tiles we got.
+
+<table width="100%">
+  <tr>
+    <td width="50%"> <img src="writeup/bigslime_intersection_before.png " alt="bigslime intersection before" />  </td>
+    <td width="50%"> <img src="writeup/bigslime_intersection_after.png" alt="bigslime intersection after"/> </td>
+  </tr>
+  <tr>
+    <td colspan="2" width="100%" style="text-align:center"> Only one tile neighbors both BigSlimes and can be the Wizard. <br> So it is. </td>
+  </tr>
+</table>
+
+If this method doesn't pinpoint the wizard, we can try spotting him using an edge BigSlime. A BigSlime on the edge (but not next to the corner)
+must have another BigSlime on the edge exactly 2 tiles away (and the wizard inbetween). So if we spot such a BigSlime, and there is only
+one option for the other BigSlime 2 tiles away, then that's where it is, and then we know the wizard is in the middle!
+
+<table width="100%">
+  <tr>
+    <td width="33%"> <img src="writeup/edgeslime_1.png " alt="edgeslime state 1" />  </td>
+    <td width="33%"> <img src="writeup/edgeslime_2.png " alt="edgeslime state 2" />  </td>
+    <td width="33%"> <img src="writeup/edgeslime_3.png " alt="edgeslime state 3" />  </td>
+  </tr>
+  <tr>
+    <td colspan="3" width="100%" style="text-align:center"> This edge BigSlime cannot have its twin two tiles above.
+    <br> So it must be two tiles below.
+    <br> So the wizard is inbetween. </td>
+  </tr>
+</table>
+
+
+A similar exercise can be done with a BigSlime not on the edge. Such a BigSlime must have at least one other BigSlime
+cross-neighbor that's not on the edge. If it can't be in one direction, it must be in the other! Then, the third one
+must be even one tile further, and then the Wizard has been spotted.
+
+<table width="100%">
+  <tr>
+    <td width="33%"> <img src="writeup/adjslime_1.png " alt="adjslime state 1" />  </td>
+    <td width="33%"> <img src="writeup/adjslime_2.png " alt="adjslime state 2" />  </td>
+    <td width="33%"> <img src="writeup/adjslime_3.png " alt="adjslime state 3" />  </td>
+  </tr>
+  <tr>
+    <td colspan="3" width="100%" style="text-align:center"> This non-edge BigSlime cannot have a neighbor above.
+    <br> So it must have a neighbor below, and two below.
+    <br> So the wizard is on the edge inbetween. </td>
+  </tr>
+</table>
+
+
+This doesn't work out of the box if our chosen BigSlime is near the corner, as then it could still be the middle one even
+if it has only one neighbor BigSlime that's not on the edge. So in that case we double check whether this option is possible,
+and only fill out the pattern (having this tile as the middle slime, or the corner slime) if exactly one option fits.
+
+<table width="100%">
+    <tr> <td> <img src="writeup/adjslime_counterexample.png" alt="adjslime corner example"> </td> </tr>
+    <tr> <td> Because of the corner placement, we cannot tell <br> whether the leftmost or rightmost tile is a BigSlime. <br> We can be sure the marked tile is a BigSlime, though. </td> </tr>
+</table>
 
 <h3> Gaze into your soul </h3>
 
