@@ -185,7 +185,7 @@ sum of the maximum possible powers of all neighbors except one is M, then the la
     <td width="50%"> <img src="writeup/too_small_after.png" alt="too small after"/> </td>
   </tr>
   <tr>
-    <td colspan="2" width="100%" style="text-align:center"> 111-(100+2+1+6+s) = 2, so top-left square is at least 2 </td>
+    <td colspan="2" width="100%" style="text-align:center"> 111-(100+2+1+6+0s) = 2, so top-left square is at least 2 </td>
   </tr>
 </table>
 
@@ -226,6 +226,7 @@ Some enemies in the game exist only once. Once you've found them, they can't be 
 - Rat King
 - Wizard
 - Mine King
+- Dragon Egg
 
 So once we spot them, we rule them out from all other tiles.
 
@@ -376,7 +377,7 @@ through them takes loads of hp.
 Once we spot the Wizard, we can also tell that all unrevealed tiles surrounding him are Big Slimes.
 
 So firstly, because Big Slimes are always together, after we spot one, we can rule them out from any tile that is far away from it.
-The most distant pair of Big Slimes is separated by a distance of sqrt(5). So, rule out BigSlimes from tiles further than that from the one
+The most distant pair of Big Slimes is separated by a distance of sqrt(5). So, rule out Big Slimes from tiles further than that from the one
 we found.
 
 Secondly, a Big Slime always cross-neighbors another Big Slime. Slightly more strongly, a Big Slime not on the edge must have 2 Big Slime neighbors,
@@ -390,8 +391,8 @@ where Big Slimes could be to satisfy this requirement, we can rule it out from t
     <td width="50%"> <img src="writeup/bigslime_neighbor_after.png" alt="bigslime neighbor after"/> </td>
   </tr>
   <tr>
-    <td colspan="2" width="100%" style="text-align:center"> 5:8 tile not on the edge might be a BigSlime <br>
-    But, because at most 1 neighbor can be a BigSlime, it isn't </td>
+    <td colspan="2" width="100%" style="text-align:center"> 5:8 tile not on the edge might be a Big Slime <br>
+    But, because at most 1 neighbor can be a Big Slime, it isn't </td>
   </tr>
 </table>
 
@@ -407,13 +408,13 @@ possible locations of the Wizard to the tiles we got.
     <td width="50%"> <img src="writeup/bigslime_intersection_after.png" alt="bigslime intersection after"/> </td>
   </tr>
   <tr>
-    <td colspan="2" width="100%" style="text-align:center"> Only one tile neighbors both BigSlimes and can be the Wizard. <br> So it is. </td>
+    <td colspan="2" width="100%" style="text-align:center"> Only one tile neighbors both Big Slimes and can be the Wizard. <br> So it is. </td>
   </tr>
 </table>
 
-If this method doesn't pinpoint the wizard, we can try spotting him using an edge BigSlime. A BigSlime on the edge (but not next to the corner)
-must have another BigSlime on the edge exactly 2 tiles away (and the wizard inbetween). So if we spot such a BigSlime, and there is only
-one option for the other BigSlime 2 tiles away, then that's where it is, and then we know the wizard is in the middle!
+If this method doesn't pinpoint the wizard, we can try spotting him using an edge Big Slime. A Big Slime on the edge (but not next to the corner)
+must have another Big Slime on the edge exactly 2 tiles away (and the wizard inbetween). So if we spot such a Big Slime, and there is only
+one option for the other Big Slime 2 tiles away, then that's where it is, and then we know the wizard is in the middle!
 
 <table width="100%">
   <tr>
@@ -422,14 +423,14 @@ one option for the other BigSlime 2 tiles away, then that's where it is, and the
     <td width="33%"> <img src="writeup/edgeslime_3.png " alt="edgeslime state 3" />  </td>
   </tr>
   <tr>
-    <td colspan="3" width="100%" style="text-align:center"> This edge BigSlime cannot have its twin two tiles above.
+    <td colspan="3" width="100%" style="text-align:center"> This edge Big Slime cannot have its twin two tiles above.
     <br> So it must be two tiles below.
     <br> So the wizard is inbetween. </td>
   </tr>
 </table>
 
 
-A similar exercise can be done with a BigSlime not on the edge. Such a BigSlime must have at least one other BigSlime
+A similar exercise can be done with a Big Slime not on the edge. Such a Big Slime must have at least one other Big Slime
 cross-neighbor that's not on the edge. If it can't be in one direction, it must be in the other! Then, the third one
 must be even one tile further, and then the Wizard has been spotted.
 
@@ -440,27 +441,61 @@ must be even one tile further, and then the Wizard has been spotted.
     <td width="33%"> <img src="writeup/adjslime_3.png " alt="adjslime state 3" />  </td>
   </tr>
   <tr>
-    <td colspan="3" width="100%" style="text-align:center"> This non-edge BigSlime cannot have a neighbor above.
+    <td colspan="3" width="100%" style="text-align:center"> This non-edge Big Slime cannot have a neighbor above.
     <br> So it must have a neighbor below, and two below.
     <br> So the wizard is on the edge inbetween. </td>
   </tr>
 </table>
 
-
-This doesn't work out of the box if our chosen BigSlime is near the corner, as then it could still be the middle one even
-if it has only one neighbor BigSlime that's not on the edge. So in that case we double check whether this option is possible,
+This doesn't work out of the box if our chosen Big Slime is near the corner, as then it could still be the middle one even
+if it has only one neighbor Big Slime that's not on the edge. So in that case we double check whether this option is possible,
 and only fill out the pattern (having this tile as the middle slime, or the corner slime) if exactly one option fits.
 
 <table width="100%">
     <tr> <td> <img src="writeup/adjslime_counterexample.png" alt="adjslime corner example"> </td> </tr>
-    <tr> <td> Because of the corner placement, we cannot tell <br> whether the leftmost or rightmost tile is a BigSlime. <br> We can be sure the marked tile is a BigSlime, though. </td> </tr>
+    <tr> <td> Because of the corner placement, we cannot tell <br> whether the leftmost or rightmost tile is a Big Slime. <br> We can be sure the marked tile is a Big Slime, though. </td> </tr>
 </table>
 
 <h3> Gaze into your soul </h3>
 
-Numbers invalidate gazers
+Gazers are a problem, because they obscure themselves. They put `?`s on all revealed empty tiles with Manhattan distance <=2.
+By their nature, we can never pinpoint their location using typical rules looking at attack numbers, because there will never be
+any attack numbers near them. Instead, we have to weaponize `?`s themselves.
 
-? with only 1 option
+If there is a `?` for which only a single tile exists where the Gazer could be hiding and causing it to show up, then there he is!
+The trick is to rule out Gazers from the tiles shrouded next to the `?`, so that we get to that single option quickly.
+
+Here, we can turn the Gazer's power around and deduce as follows: if the Gazer puts `?` on all tiles with Manhattan distance <=2, then
+if we see an attack number on some tile, there is no Gazer under any tile with Manhattan distance <=2 from it, so we can rule him out
+from all of them.
+
+It's important to note that, from a human point of view, you can usually guess where the Gazer is earlier. For example, in the situation below,
+this pair of conditions is unable to locate the Gazer hiding under the marked tile:
+
+<table width="100%">
+    <tr> <td> <img src="writeup/gazer_bamboozle_before.png" alt="gazer not spotted example"> </td> </tr>
+    <tr> <td style="text-align:center"> Technically each ? has more than 1 tile <br> from where a Gazer could apply it... </td> </tr>
+</table>
+
+So while you would spot it at this point, kill it, and reveal a lot of information, my known game state isn't smart enough.
+
+If you just nodded along to this demonstration and are now a bit disappointed that my Gazer spotting logic is weak, then I will admit two things:
+
+1. You're right, my Gazer spotting logic is kind of weak.
+
+2. The marked tile isn't a Gazer, it's a Mine. If you clicked it, you would have lost the game.
+
+<details markdown=1>
+<summary> Boo(m)! </summary>
+
+<table width="100%" markdown=true>
+    <tr> <td> <img src="writeup/gazer_bamboozle_revealed.png" alt="gazer bamboozle revealed"> </td> </tr>
+    <tr> <td style="text-align:center"> Prepare for trouble, because it's double </td> </tr>
+</table>
+</details>
+
+<br>
+So, from the perspective of the known game state, where it must not conclude false information, it really is better to be safe than sorry.
 
 <h3> Even fancier type 2 rules </h3>
 
