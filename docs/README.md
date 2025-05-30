@@ -501,7 +501,7 @@ So, from the perspective of the known game state, where it must not conclude fal
 
 v0, v1, v2, v3
 
-<h3> ...and with mines separately <h3>
+<h3> ...and with mines separately </h3>
 
 
 ... and clear some out!
@@ -509,30 +509,36 @@ v0, v1, v2, v3
 
 <h3> What's left </h3>
 
-gnomes and empty tiles near heals!
+gnomes and empty tiles near heals! <br>
 
-elimination of impossible slime pairs/triplets from nearby attack number, or proper placing everywhere
+elimination of impossible slime pairs/triplets from nearby attack number, or proper placing everywhere <br>
 
-counting enemies
+counting enemies <br>
 
-trying subsets
+trying subsets and similar high-power things <br>
 
 dual-gazer hunting
 
 <h3> How to know everything and not have 10 FPS </h3>
 
 Of course, if you take the current known game state and apply all the rules one after the other, you may gain more knowledge, and this knowledge might make it
-possible to obtain more knowledge if you applied them again. So, we want to apply the rules over and over. Initially I was simply running through all the rules
-at every frame of the game, however this soon made the game perform very poorly (since many checks go through many pairs of tiles), so I had to figure out
-a way to detect when the rules weren't making any new deductions, and resume only once an action has been taken. So, each time, after we're done, we sum up the
+possible to obtain more knowledge if you applied them again. So, we want to apply the rules over and over.
+
+Initially I was simply running through all the rules at every frame of the game, however this soon made the game perform very poorly
+(since many checks go through many pairs of tiles), so I had to figure out a way to detect when the rules weren't making any new deductions,
+and resume only once an action has been taken.
+
+So, each time, after we're done, we sum up the
 sizes of the possible actors sets for all the tiles, and compare it to the same value from before we started. If these numbers are different, we note in our state
 that the last update was *meaningful*, otherwise that it wasn't. In each frame, we go try and update our knowledge only if an action was taken, or if the last
 update was meaningful. This works great, because if after an action we can only deduce things once, we stop quickly, if we get to make deductions further
-and further down the grid, it will keep going as long as needed. Yay, optimized!
+and further down the grid, it will keep going as long as needed. 
+
+Yay, optimized!
 
 <h4> Coming soon </h4>
 
-- A section on all the tricks used to glean information about the dungeon
+- A section on all the tricks used to glean information about the dungeon (WIP)
 - A section on how the solver picks its next move
 - A more detailed section about the solver's performance and how we got there
 - Advanced section (how to add more code? how to test?)
