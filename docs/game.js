@@ -2837,6 +2837,42 @@ function updateKnownGameState() {
             }
         }
 
+        // 2 unrevealed squares, one on edge one near the edge, that cannot both be bigslimes, are not
+        let visibleNearEdge = state.actors.filter(a => isCloseToEdge(a.tx, a.ty) && getVisibleAttackNumber(a) % 100 >= 8);
+        for (let v of visibleNearEdge) {
+            let attNumber = getVisibleAttackNumber(v) % 100;
+            let visPower = getNeighborsWithDiagonals(v.tx, v.ty).map(n => knownGameState.grid[n.ty][n.tx].bestCasePower() % 100).reduce((acc, val) => { return acc + val; }, 0);
+            let missingPower = attNumber - visPower;
+            if (missingPower >= 16) {
+                continue;
+            }
+
+            for (let e of getNeighborsWithDiagonals(v.tx, v.ty).filter(n => isEdge(n.tx, n.ty) && !n.revealed && knownGameState.grid[n.ty][n.tx].couldBe(ActorId.BigSlime))) {
+
+                let ne = getNeighborsCross(e.tx, e.ty).find(n => !n.revealed && distance(v.tx, v.ty, n.tx, n.ty) < 1.5 && isCloseToEdge(n.tx, n.ty) && !isEdge(n.tx, n.ty));
+                if (ne == undefined) {
+                    continue;
+                }
+
+                // near-corner slime formation makes things buggy again argh
+                if ((ne.tx == 1 || ne.tx == state.gridW - 2) && (ne.ty == 1 || ne.ty == state.gridH - 2)) {
+                    continue;
+                }
+
+                let missingWithoutUs = missingPower + knownGameState.grid[e.ty][e.tx].bestCasePower() + knownGameState.grid[ne.ty][ne.tx].bestCasePower();
+
+                if (missingWithoutUs >= 16) {
+                    continue;
+                }
+
+                // knowledgeUpdateLog(`Visible ${v.ty} ${v.tx} has e and ne ${e.ty} ${e.tx}, ${ne.ty} ${ne.tx} that byebyes BigSlimes`);
+                // knowledgeUpdateLog(`Since missing power without them is ${missingWithoutUs}`);
+
+                knownGameState.grid[e.ty][e.tx].removePossibleActor(ActorId.BigSlime);
+                knownGameState.grid[ne.ty][ne.tx].removePossibleActor(ActorId.BigSlime);
+            }
+        }
+
         let maybeWizard = edges.find((a) => knownGameState.grid[a.ty][a.tx].knownActor() == ActorId.Wizard);
         if (maybeWizard != undefined) {
             knownGameState.wizardFound = true;

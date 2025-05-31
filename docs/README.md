@@ -44,13 +44,13 @@ Good luck!
 Some quick statistics about the latest iteration of the solver (v18):
 
 ```none
-1000 games: 983 won, 926 cleared (57 won but failed to clear)
+1000 games: 984 won, 927 cleared (57 won but failed to clear)
 Had to risk it in 0.8% of won games; 7.0% when no clear, 0.4% when clear
-Average early wall hits: 0.27 when cleared, 1.21 when won without clear, 1.12 when lost
-Average mine king delay: 0.21 when cleared, 0.86 when won without clear
-When lost, on average had 46.59 score
-When won without clear, on average had 362.98 score
-When won without clear, on average had 3.51 damage to go
+Average early wall hits: 0.27 when cleared, 1.19 when won without clear, 1.12 when lost
+Average mine king delay: 0.21 when cleared, 0.93 when won without clear
+When lost, on average had 46.06 score
+When won without clear, on average had 362.81 score
+When won without clear, on average had 3.82 damage to go
 When cleared, on average had 6.08 hp left over
 Most hp left when cleared: 13 (happened 5 times)
 Lost without risk: 0
@@ -453,7 +453,17 @@ and only fill out the pattern (having this tile as the middle slime, or the corn
 
 <table width="100%">
     <tr> <td> <img src="writeup/adjslime_counterexample.png" alt="adjslime corner example"> </td> </tr>
-    <tr> <td> Because of the corner placement, we cannot tell <br> whether the leftmost or rightmost tile is a Big Slime. <br> We can be sure the marked tile is a Big Slime, though. </td> </tr>
+    <tr> <td style="text-align:center"> Because of the corner placement, we cannot tell <br> whether the leftmost or rightmost tile is a Big Slime. <br> We can be sure the marked tile is a Big Slime, though. </td> </tr>
+</table>
+
+And last little check we can make, is that if we have two unrevealed tiles, one on the edge and one near the edge, and they cannot hold a combined power
+of 16 without going over the limit of some nearby attack number (i.e. they could not both be Big Slimes at the same time), then we can rule them both out.
+Here it's also important not to make this judgment near the corner, where we could accidentally rule out an adjacent formation on the orthogonal wall.
+
+<table width="100%">
+    <tr> <td> <img src="writeup/bigslime_pair.png" alt="bigslime pair example"> </td> </tr>
+    <tr> <td style="text-align:center"> Although each unknown neighbor of 13 could hold a Big Slime with power 8, <br>
+    since they cannot both hold it without going over its limit, we can rule them out. </td> </tr>
 </table>
 
 <h3> Gaze into your soul </h3>
