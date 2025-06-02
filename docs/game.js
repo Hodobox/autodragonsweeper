@@ -1936,15 +1936,15 @@ class KnownGameStateGridSquare {
     }
 
     bestCasePower() {
-        return Math.min(...this.possibleActors.map((a) => a.monsterLevel));
+        return Math.min(...this.possibleActors.map(a => a.monsterLevel));
     }
 
     worstCasePower() {
-        return Math.max(...this.possibleActors.map((a) => a.monsterLevel));
+        return Math.max(...this.possibleActors.map(a => a.monsterLevel));
     }
 
     worstCaseNonminePower() {
-        return Math.max(...this.possibleActors.map((a) => a.monsterLevel % 100));
+        return Math.max(...this.possibleActors.map(a => a.monsterLevel % 100));
     }
 
     knownActor() {
@@ -1960,11 +1960,21 @@ class KnownGameStateGridSquare {
     }
 
     isSpell() {
-        return this.possibleActors.every((a) => a.id == ActorId.Orb || a.id == ActorId.SpellDisarm || a.id == ActorId.SpellMakeOrb || a.id == ActorId.SpellRevealRats || a.id == ActorId.SpellRevealSlimes);
+        return this.possibleActors.every(a => a.id == ActorId.Orb || a.id == ActorId.SpellDisarm || a.id == ActorId.SpellMakeOrb || a.id == ActorId.SpellRevealRats || a.id == ActorId.SpellRevealSlimes);
     }
 
     survivalProbability() {
-        return this.possibleActors.filter((a) => a.monsterLevel <= state.player.hp - 1).length / this.possibleActors.length;
+        // Count how many monster levels we can survive (assume it is evenly distributed)
+        let seen = [], survive = 0, die = 0;
+        for (let a of this.possibleActors) {
+            if (seen[a.monsterLevel]) {
+                continue;
+            }
+            seen[a.monsterLevel] = true;
+            a.monsterLevel <= state.player.hp - 1 ? survive++ : die++;
+        }
+
+        return survive / (survive + die);
     }
 }
 
@@ -3329,6 +3339,19 @@ function computeRevealValue(a) {
         value += 10;
     }
 
+    /*
+    // this sadly doesn't work well, it's too aggressive. Maybe add less value?
+    let could_be_chest = knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Chest);
+    let mino_neighs = could_be_chest ? getNeighborsWithDiagonals(a.tx, a.ty).filter(n => knownGameState.grid[n.ty][n.tx].isOrWas(ActorId.Minotaur)) : [];
+    let minos_missing_chest = mino_neighs.map(mino_neigh => getNeighborsWithDiagonals(mino_neigh.tx, mino_neigh.ty).find(n => knownGameState.grid[n.ty][n.tx].isOrWas(ActorId.Chest) || looksLikeClosedChest(n)) == undefined);
+    let is_a_mino_missing_chest = minos_missing_chest.find(v => v == true) != undefined;
+
+    if (could_be_chest && is_a_mino_missing_chest) {
+        // solverLog(`${a.ty} ${a.tx} +10 for possible chest`);
+        value += 10;
+    }
+    */
+
     // for each unknown neighbor, 0.1 value for each known square around it
     for (let n of getNeighborsWithDiagonals(a.tx, a.ty).filter((f) => knownGameState.grid[f.ty][f.tx].knownPower() == null)) {
         value += 0.1 * getNeighborsWithDiagonals(n.tx, n.ty).filter((nn) => knownGameState.grid[nn.ty][nn.tx].knownPower() != null).length;
@@ -3421,12 +3444,44 @@ function cleanupPhaseClick() {
 }
 
 function hailMaryClickActor() {
+
+    // three types of squares give us an advantage when we're desperate:
+    // - squares that could be a dragon egg
+    // - squares that are likely to be chests due to Minotaur
+    // - squares that are likely to be Medikit due to Gnome. We cannot use these, because we currently cannot tell there was a teleporting gnome.
+
     let unknownE = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() == undefined);
     unknownE.sort((a, b) => knownGameState.grid[b.ty][b.tx].survivalProbability() - knownGameState.grid[a.ty][a.tx].survivalProbability());
+
+    let interestingE = unknownE.filter(a => {
+        if (knownGameState.grid[a.ty][a.tx].couldBe(ActorId.DragonEgg)) {
+            return true;
+        }
+
+        if (!knownGameState.grid[a.ty][a.tx].couldBe(ActorId.Chest)) {
+            return false;
+        }
+        let mino_neighs = getNeighborsWithDiagonals(a.tx, a.ty).filter(n => knownGameState.grid[n.ty][n.tx].isOrWas(ActorId.Minotaur));
+        let minos_missing_chest = mino_neighs.map(mino_neigh => getNeighborsWithDiagonals(mino_neigh.tx, mino_neigh.ty).find(n => knownGameState.grid[n.ty][n.tx].isOrWas(ActorId.Chest) || looksLikeClosedChest(n)) == undefined);
+        let is_a_mino_missing_chest = minos_missing_chest.find(v => v == true) != undefined;
+
+        return is_a_mino_missing_chest;
+    });
+
+    if (interestingE.length > 0) {
+        let intE = interestingE[0];
+        let unkE = unknownE[0];
+
+        if (knownGameState.grid[intE.ty][intE.tx].survivalProbability() >= knownGameState.grid[unkE.ty][unkE.tx].survivalProbability() * 2 / 3) {
+            // solverLog(`Hail mary is interesting at ${intE.ty} ${intE.tx}`);
+            return intE;
+        }
+    }
+
     if (unknownE.length > 0) {
         let e = unknownE[0];
         if (knownGameState.grid[e.ty][e.tx].survivalProbability() > 0) {
-            return getActorAt(e.tx, e.ty);
+            return e;
         }
     }
     return null;
