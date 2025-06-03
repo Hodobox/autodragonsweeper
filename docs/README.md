@@ -39,20 +39,23 @@ v17:
 v18:
 `2053242367, 1942864448, 737164330, 2263168761, 1350173042, 3736902895, 693304165, 848014395, 2226969393, 452132014, 2662640291, 626331229, 2926256338, 3623990632, 1849632308, 4199661045, 3069707154`
 
+v20:
+`1304931236, 1239211766, 984325612, 2158836351, 926292535, 3359350696, 1402382130, 2564323745, 2501565802, 1308133567, 236855426`
+
 Good luck!
 
 Some quick statistics about the latest iteration of the solver (v18):
 
 ```none
-1000 games: 984 won, 927 cleared (57 won but failed to clear)
-Had to risk it in 0.8% of won games; 7.0% when no clear, 0.4% when clear
-Average early wall hits: 0.27 when cleared, 1.19 when won without clear, 1.12 when lost
-Average mine king delay: 0.21 when cleared, 0.93 when won without clear
-When lost, on average had 46.06 score
-When won without clear, on average had 362.81 score
-When won without clear, on average had 3.82 damage to go
-When cleared, on average had 6.08 hp left over
-Most hp left when cleared: 13 (happened 5 times)
+1000 games: 989 won, 929 cleared (60 won but failed to clear)
+Had to risk it in 0.8% of won games; 6.7% when no clear, 0.4% when clear
+Average early wall hits: 0.31 when cleared, 1.22 when won without clear, 1.55 when lost
+Average mine king delay: 0.20 when cleared, 0.45 when won without clear
+When lost, on average had 52.82 score
+When won without clear, on average had 362.98 score
+When won without clear, on average had 3.48 damage to go
+When cleared, on average had 6.05 hp left over
+Most hp left when cleared: 13 (happened 3 times)
 Lost without risk: 0
 ```
 
