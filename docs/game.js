@@ -2643,8 +2643,8 @@ function updateKnownGameState() {
             // %100 should be redundant, because bestCasePower = 100 <-> we know it's a mine, but hey
             const missingCreatureWithoutMe = missingCreaturePower + (knownGameState.grid[n.ty][n.tx].bestCasePower() % 100);
 
-            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel <= missingWithoutMe);
-            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel >= 100 || a.monsterLevel <= missingCreatureWithoutMe);
+            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter(a => a.monsterLevel <= missingWithoutMe);
+            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter(a => a.monsterLevel >= 100 || a.monsterLevel <= missingCreatureWithoutMe);
         }
     }
 
@@ -2679,7 +2679,10 @@ function updateKnownGameState() {
             let atMostCreaturePowerWithoutMe = atMostCreaturePower - knownGameState.grid[n.ty][n.tx].worstCaseNonminePower();
             let needAtLeastThisCreaturePower = missingCreaturePower - atMostCreaturePowerWithoutMe;
 
-            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter((a) => a.monsterLevel >= needAtLeastThisCreaturePower);
+            knownGameState.grid[n.ty][n.tx].possibleActors = knownGameState.grid[n.ty][n.tx].possibleActors.filter(a => a.monsterLevel >= needAtLeastThisCreaturePower);
+            if (needAtLeastThisCreaturePower > 0) {
+                knownGameState.grid[n.ty][n.tx].removePossibleActor(ActorId.Mine);
+            }
         }
     }
 
@@ -2935,7 +2938,7 @@ function updateKnownGameState() {
             if (mino.length == 1 && knownGameState.grid[mino[0].ty][mino[0].tx].knownActor() == null) {
                 knowledgeUpdateLog(`Chest ${a.ty} ${a.tx} pinpoints a minotaur at ${mino[0].ty} ${mino[0].tx}`);
                 knownGameState.grid[mino[0].ty][mino[0].tx].possibleActors = [makeActor(ActorId.Minotaur)];
-                solverStats.chestsSpottingMinotaurs++;
+                solverStats.features.chestsSpottingMinotaurs++;
             }
         }
 
@@ -2944,7 +2947,7 @@ function updateKnownGameState() {
             if (chest.length == 1 && knownGameState.grid[chest[0].ty][chest[0].tx].knownPower() == null) {
                 knowledgeUpdateLog(`Minotaur ${a.ty} ${a.tx} pinpoints a chest at ${chest[0].ty} ${chest[0].tx}`);
                 knownGameState.grid[chest[0].ty][chest[0].tx].possibleActors = [makeActor(ActorId.Chest)];
-                solverStats.minotaursSpottingChests++;
+                solverStats.features.minotaursSpottingChests++;
             }
         }
     }
