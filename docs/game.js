@@ -3020,6 +3020,7 @@ function updateKnownGameState() {
                 for (let act of oddOneOut) {
                     let yx = decodeForSet(act);
                     if (knownGameState.grid[yx[0]][yx[1]].worstCasePower() > deducedMaxPower) {
+                        // knowledgeUpdateLog(`${a.ty} ${a.tx} has all the neighbors of ${n.tu} ${n.tx} and some more; turning ${yx[1]} ${yx[0]} down to ${deducedMaxPower}`);
                         solverStats.features.deducedUpperBound++;
                         knownGameState.grid[yx[0]][yx[1]].possibleActors = knownGameState.grid[yx[0]][yx[1]].possibleActors.filter(a => a.monsterLevel <= deducedMaxPower);
                     }
@@ -3086,6 +3087,7 @@ function updateKnownGameState() {
                 let powerLimit = aWorstcasePower + powerChangeFromAtoN;
 
                 let eliminated = false;
+                let nGroupBestcasePower = 0;
                 for (let nn of nNeighbors) {
                     let nSquare = getActorAt(decodeForSet(nn)[1], decodeForSet(nn)[0]);
                     for (let nActor of knownGameState.grid[nSquare.ty][nSquare.tx].possibleActors) {
@@ -3094,18 +3096,35 @@ function updateKnownGameState() {
                             knownGameState.grid[nSquare.ty][nSquare.tx].removePossibleActor(nActor.id);
                         }
                     }
+                    nGroupBestcasePower += knownGameState.grid[nSquare.ty][nSquare.tx].bestCasePower();
                 }
 
                 if (eliminated) {
                     solverStats.features.shiftedUnknownSquaresBoundByAnother++;
                     knowledgeUpdateLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx} rules out enemies with power > ${powerLimit} from unshared unknown squares neighboring the former`);
                 }
+
+                eliminated = false;
+                let aSquarePowerMinimum = nGroupBestcasePower - powerChangeFromAtoN;
+                for (let aActor of knownGameState.grid[aSquare.ty][aSquare.tx].possibleActors) {
+                    if (aActor.monsterLevel < aSquarePowerMinimum) {
+                        eliminated = true;
+                        knownGameState.grid[aSquare.ty][aSquare.tx].removePossibleActor(aActor.id);
+                    }
+                }
+
+                if (eliminated) {
+                    solverStats.features.shiftedUnknownSquaresBoundByAnother++;
+                    knowledgeUpdateLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx}, and the former's minimum power ${nGroupBestcasePower}, means the one unshared neighbor of the latter (${aSquare.ty} ${aSquare.ty}) is at least ${aSquarePowerMinimum}`);
+                }
+
             }
             else if (nNeighbors.length == 1) {
                 let nSquare = getActorAt(decodeForSet(nNeighbors[0])[1], decodeForSet(nNeighbors[0])[0]);
                 let nWorstcasePower = knownGameState.grid[nSquare.ty][nSquare.tx].worstCasePower();
                 // all aNeighbors are at most nWorstCasePower - powerChangeFromAtoN
                 let powerLimit = nWorstcasePower - powerChangeFromAtoN;
+                let aGroupBestcasePower = 0;
 
                 let eliminated = false;
                 for (let na of aNeighbors) {
@@ -3116,11 +3135,26 @@ function updateKnownGameState() {
                             knownGameState.grid[aSquare.ty][aSquare.tx].removePossibleActor(aActor.id);
                         }
                     }
+                    aGroupBestcasePower += knownGameState.grid[aSquare.ty][aSquare.tx].bestCasePower();
                 }
 
                 if (eliminated) {
                     solverStats.features.shiftedUnknownSquaresBoundByAnother++;
                     knowledgeUpdateLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx}  rules out enemies with power > ${powerLimit} from unshared unknown squares neighboring the latter`);
+                }
+
+                eliminated = false;
+                let nSquarePowerMinimum = aGroupBestcasePower + powerChangeFromAtoN;
+                for (let nActor of knownGameState.grid[nSquare.ty][nSquare.tx].possibleActors) {
+                    if (nActor.monsterLevel < nSquarePowerMinimum) {
+                        eliminated = true;
+                        knownGameState.grid[nSquare.ty][nSquare.tx].removePossibleActor(nActor.id);
+                    }
+                }
+
+                if (eliminated) {
+                    solverStats.features.shiftedUnknownSquaresBoundByAnother++;
+                    knowledgeUpdateLog(`Power difference ${powerChangeFromAtoN} between unshared unknown neighbors of ${n.ty} ${n.tx} - ${a.ty} ${a.tx}, and the latter's minimum power ${aGroupBestcasePower}, means the one unshared neighbor of the latter (${nSquare.ty} ${nSquare.ty}) is at least ${nSquarePowerMinimum}`);
                 }
             }
         }

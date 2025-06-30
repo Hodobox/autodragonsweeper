@@ -42,21 +42,24 @@ v18:
 v21:
 `3176113192, 3925959345, 2488958036, 1564206090, 1557196361, 139739039, 2309594079, 1943299590, 3243012160, 1304931236, 1239211766, 926292535, 3359350696, 2501565802, 1308133567, 236855426`
 
+v22:
+`2013347088, 2192313174, 1639253265, 1815710409, 2122597714, 3717114829, 2672500049, 712673713, 3865424773, 683940674, 3330252169, 2885331457, 3530625750, 2450094780, 297012768, 2096272193, 4102034837, 2996040991`
+
 Good luck!
 
-Some quick statistics about the latest iteration of the solver (v18):
+Some quick statistics about the latest iteration of the solver (v22):
 
 ```none
-2000 games: 1984 won, 1865 cleared (119 won but failed to clear)
-Had to risk it in 0.8% of won games; 7.6% when no clear, 0.4% when clear
-Average early wall hits: 0.29 when cleared, 1.32 when won without clear, 1.56 when lost
-Average mine king delay: 0.17 when cleared, 0.39 when won without clear
-When lost, on average had 49.81 score
-When won without clear, on average had 362.34 score
-When won without clear, on average had 4.38 damage to go
-When cleared, on average had 6.09 hp left over
-Most hp left when cleared: 13 (happened 13 times)
-Lost without risk: 0
+2000 games: 1982 won, 1863 cleared (119 won but failed to clear)
+Had to risk it in 0.6% of won games; 1.7% when no clear, 0.5% when clear
+Average early wall hits: 0.31 when cleared, 1.33 when won without clear, 1.39 when lost
+Average mine king delay: 0.17 when cleared, 0.63 when won without clear
+When lost, on average had 44.39 score
+When won without clear, on average had 362.53 score
+When won without clear, on average had 4.24 damage to go
+When cleared, on average had 6.04 hp left over
+Most hp left when cleared: 13 (happened 18 times)
+Lost without risk: 1
 ```
 
 You can find all the code in my [github repository](https://github.com/Hodobox/autodragonsweeper).
@@ -512,9 +515,103 @@ So, from the perspective of the known game state, where it must not conclude fal
 
 <h3> Even fancier type 2 rules </h3>
 
-v0, v1, v2, v3
+We may have some unrevealed tiles that we cannot determine just by looking at one neighboring attack number, but that we may determine
+(at least something about) it if we look at several. Let's do that! 
 
-<h3> ...and with mines separately </h3>
+<h4> V0 </h4>
+
+If there are two neighboring attack-number tiles, and they share all unknown neighbors except one, we can directly calculate that one's power.
+
+<table width="100%">
+  <tr>
+    <td width="50%"> <img src="writeup/fancyv0_before.png " alt="One unshared neighbor before" />  </td>
+    <td width="50%"> <img src="writeup/fancyv0_after.png" alt="One unshared neighbor after"/> </td>
+  </tr>
+  <tr>
+    <td colspan="2" width="100%" style="text-align:center"> The 28 above the dragon and the 22 above it share all unknown neighbors, 
+    except the top-left (worst case 7) <br> Compared to the 28, the 22 does not neighbor the dragon, so it should see 13 less power; <br>
+    But it is only 6 weaker, so the one unknown tile that it gained must be 13 - 6 = 7. 
+    </td>
+  </tr>
+</table>
+
+<h4> V1 </h4>
+
+Even if two neighboring attack-number tiles have more than one unshared unknown neighbor, as long as all of the unshared neighbors are neighbors of just
+one of them, we can determine the upper bound on their total power (even if we can't tell how it is distributed).
+
+<table width="100%">
+  <tr>
+    <td width="50%"> <img src="writeup/fancyv1_before.png " alt="One-sided unshared neighbors before" />  </td>
+    <td width="50%"> <img src="writeup/fancyv1_after.png" alt="One-sided unshared neighbors after"/> </td>
+  </tr>
+  <tr>
+    <td colspan="2" width="100%" style="text-align:center"> Just looking at the 107 itself and all its neighbors, we can't tell what the left-side tiles are <br>
+    But, because we know that the unknown tiles neighboring the 115 are a total of 115 - 13 = 102, <br>
+    and the 107 shares all of them, they must add up to 107 - 102 = 5
+    </td>
+  </tr>
+</table>
+
+<h4> V2 </h4>
+
+Even if two neighboring attack-number tiles each have some unknown neighbors that they do not share with the other, if they both have exactly one,
+we can find the relationship between the powers of these two unknown squares. In other words, it lets us make statements like 'this unknown tile is
+exactly X more (or less) powerful than this other one'. We can then use this information to prune it -
+if some tile X has lets say 2 more power than another tile Y,
+we can eliminate all monsters from X with such power(s) P, for which we know that Y cannot be a monster with power P-2. Well, look at the example below.
+
+<table width="100%">
+  <tr>
+    <td width="25%"> <img src="writeup/fancyv2_intro.png " alt="Relationship between two unknowns intro" />  </td>
+    <td width="25%"> <img src="writeup/fancyv2_before.png " alt="Relationship between two unknowns before" />  </td>
+    <td width="25%"> <img src="writeup/fancyv2_middle.png " alt="Relationship between two unknowns one way" />  </td>
+    <td width="25%"> <img src="writeup/fancyv2_after.png" alt="Relationship between two unknowns the other way"/> </td>
+  </tr>
+  <tr>
+    <td width="25%" style="text-align:center"> Moving down from the '23' hint to the '3' hint, the difference is: <br> 
+      We lose 16 known power, and the '6' unknown tile <br>
+      We gain the unknown '3' tile
+    </td>
+    <td width="25%" style="text-align:center"> We lost 16 known power, but the hint changed by 20 <br>
+      So the '3' tile must be 4 weaker than the '6' tile <br> 
+      So it's at most 6 - 4 = 2 (we eliminated the skeleton from it)
+      </td>
+      <td colspan="2" width="50%" style="text-align:center"> And now the other way around: the '6' must be 4 stronger than what is now the '2' <br>
+        Since the '2' could be empty (a 0), the '6' is at least 4 <br>
+        (we eliminated actors with powers 0, 1, 2, and 3 from it)
+      </td>
+  </tr>
+</table>
+
+<h4> V3 </h4>
+
+What if one attack-number tile has one unshared neighbor to itself, and its neighbor has several to itself? Can we still tell something?
+Well, the bound becomes a bit weaker. We now have a statement of the form 'this bunch of tiles have a combined power X more (or less) than this one tile T'.
+We cannot do exact elimination as before, since this power can be distributed arbitrarily amongst several tiles. But we can tell that no monster here will
+be stronger than T's worst case power + X. So we get an upper bound.
+
+Similarly in the other direction, we can't eliminate explicit monsters from T, but we
+know that it will be X stronger than all of the other bunch'o'tiles combined. So sum up the lower bound on the possible power for each of them,
+and eliminate everything from T which is smaller than that +X.
+
+<table width="100%">
+  <tr>
+    <td width="50%"> <img src="writeup/fancyv3_before.png " alt="Unshared neighbors power limit to bunch of tiles" />  </td>
+    <td width="50%"> <img src="writeup/fancyv3_after.png" alt="Unshared neighbors power limit to single tile"/> </td>
+
+  </tr>
+  <tr>
+    <td width="50%" style="text-align:center"> moving from the '21' to the '14', we lose the left bunch of tiles and gain the right '9' <br>
+    At the same time, 21 is missing 10 power (sees 11), while the 14 is missing 14 power <br>
+    So, the left group of tiles combined is 14 - 10 = 4 weaker than the right '9', which is at most 9.
+    </td>
+    <td width="50%" style="text-align:center"> And by the same argument, the '9' is 4 more than the left group of tiles combined
+    </td>
+  </tr>
+</table>
+
+<h4> ...and with mines separately </h4>
 
 
 ... and clear some out!
@@ -525,8 +622,6 @@ v0, v1, v2, v3
 gnomes and empty tiles near heals! <br>
 
 big slime proper placing everywhere <br>
-
-even fancier type 2 rules for creatures separately...
 
 counting enemies <br>
 
