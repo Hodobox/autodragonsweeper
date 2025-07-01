@@ -341,10 +341,13 @@ If you find a chest, and you didn't find a minotaur near it, and there is only 1
   </tr>
 </table>
 
-This basically never happens. In the couple thousand games I've tested, this rule was not triggered even once.
-I can force it if I purposefuly try to set it up though!
+~~This basically never happens. In the couple thousand games I've tested, this rule was not triggered even once.
+I can force it if I purposefuly try to set it up though!~~ It actually works. I was just accessing the variable
+incorrectly (i.e. accessing one that doesn't exist instead), and of course javascript was like okie dokie. I fixed it now,
+it does indeed happen. Woo!
 
-What does happen is a fun corollary - a chest without any minotaur around it is definitely a mimic.
+
+What (...also) does happen is a fun corollary - a chest without any minotaur around it is definitely a mimic.
 
 <table width="100%">
   <tr>
