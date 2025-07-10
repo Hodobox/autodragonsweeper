@@ -3201,7 +3201,7 @@ function updateKnownGameState() {
 
     // if a square A needs X more mines
     // and a neighbor B shares all but Y mine-capable squares with us
-    // then these squares will contain at least X-Y mines
+    // then the shared squares will contain at least X-Y mines
     // and if B needs just as many mines, then there are no mines in its other neighbors
     for (let a of state.actors.filter(a => getVisibleAttackNumber(a) >= 100)) {
         let need = Math.floor(getVisibleAttackNumber(a) / 100);

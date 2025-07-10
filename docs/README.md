@@ -342,8 +342,8 @@ If you find a chest, and you didn't find a minotaur near it, and there is only 1
 </table>
 
 ~~This basically never happens. In the couple thousand games I've tested, this rule was not triggered even once.
-I can force it if I purposefuly try to set it up though!~~ It actually works. I was just accessing the variable
-incorrectly (i.e. accessing one that doesn't exist instead), and of course javascript was like okie dokie. I fixed it now,
+I can force it if I purposefuly try to set it up though!~~ It actually works. I was just incrementing the variable
+incorrectly (specifically, instead incrementing one that doesn't exist), and of course javascript was like okie dokie. I fixed it now,
 it does indeed happen. Woo!
 
 
@@ -616,8 +616,27 @@ and eliminate everything from T which is smaller than that +X.
 
 <h4> ...and with mines separately </h4>
 
+Using the same shifting logic, if we have two neighboring attack-number tiles, where one needs X more mines around it,
+and the other needs X+Y mines around it, then the unshared neighbors around the second tile need (at least) Y mines. If
+there are Y of these unshared neighbors around the second tile, well, they are all mines.
 
-... and clear some out!
+Conversely, if one attack-number tile needs X+Y mines around it, but only has Y unshared neighbors with a second tile that can be mines,
+then that means the shared neighbors of these tiles contain (at least) X mines.
+So if the second tile can only have X more mines around it to begin with, all the *other* neighbors (the unshared ones) can *not* be mines.
+
+<table width="100%">
+  <tr>
+    <td width="50%"> <img src="writeup/unshared_not_mines_before.png " alt="Unshared tiles are not mines before" />  </td>
+    <td width="50%"> <img src="writeup/unshared_not_mines_after.png" alt="Unshared tiles are not mines after"/> </td>
+
+  </tr>
+  <tr>
+    <td width="100%" colspan="2" style="text-align:center"> The 109 needs (1+0) mines. It can only put 0 mines in tiles that are not neighbors
+    of the 122. So there must be (at least) 1 mine in the shared neighbors with the 122. Since 122 only needs one mine, the neighbors it does
+    not share with the 109, are not mines.
+    </td>
+  </tr>
+</table>
 
 
 <h3> What's left </h3>
