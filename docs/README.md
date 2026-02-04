@@ -83,14 +83,14 @@ For type 4, just detect when a game-changing action is being performed (clicking
 
 Knowledge of type 1 and 2 is the real problem, and we must utilize monster patterns and relationships between the knowledge we already have to deduce more of it.
 Type 1 knowledge boils down to keeping track, for each tile, what set of objects could be there. Knowledge of type 2 is more complex, because it involves
-relationships between sets of squares. In my implementation, this knowledge is not persisted; at several points it is computed,
+relationships between sets of tiles. In my implementation, this knowledge is not persisted; at several points it is computed,
 used either to deduce knowledge of type 1 or to make a decision in the solver, and then it is discarded.
 
 So 90% of all the information gathering are deduction rules, using the available knowledge of all types to obtain more knowledge of type 1. In particular, since
 the set of possible objects for a given tile can never grow when we obtain more information about it, it essentially boils down to ruling out the possibilities
 for each tile and removing that object from its set.
 
-Oh, and at the beginning, we of course must know what possible objects could be on each square.
+Oh, and at the beginning, we of course must know what possible objects could be on each tiles.
 
 <details markdown=1>
 <summary> Click here if you want the list </summary>
@@ -191,13 +191,13 @@ sum of the maximum possible powers of all neighbors except one is M, then the la
     <td width="50%"> <img src="writeup/too_small_after.png" alt="too small after"/> </td>
   </tr>
   <tr>
-    <td colspan="2" width="100%" style="text-align:center"> 111-(100+2+1+6+0s) = 2, so top-left square is at least 2 </td>
+    <td colspan="2" width="100%" style="text-align:center"> 111-(100+2+1+6+0s) = 2, so top-left tile is at least 2 </td>
   </tr>
 </table>
 
 We do this separately for mines and creatures (even if a tile shows 105, and its neighbor could be a mine with power 100, in terms of creatures
 it could be at most a 5, so this puts limits on the creatures that can be in the other neighbors). So in the example above, we are really doing
-11 - (... + strongest creature which could be on the mine's square).
+11 - (... + strongest creature which could be on the mine's tile).
 
 <h3> Utilizing type 4 knowledge </h3>
 
@@ -236,7 +236,7 @@ Some enemies in the game exist only once. Once you've found them, they can't be 
 
 So once we spot them, we rule them out from all other tiles.
 
-Additionally, we know that exactly one corner square contains the Mine King. So, if we know he isn't in three of the corners, we can
+Additionally, we know that exactly one corner tile contains the Mine King. So, if we know he isn't in three of the corners, we can
 tell he's in the fourth.
 
 <table width="100%">
@@ -559,7 +559,7 @@ one of them, we can determine the upper bound on their total power (even if we c
 <h4> V2 </h4>
 
 Even if two neighboring attack-number tiles each have some unknown neighbors that they do not share with the other, if they both have exactly one,
-we can find the relationship between the powers of these two unknown squares. In other words, it lets us make statements like 'this unknown tile is
+we can find the relationship between the powers of these two unknown tiles. In other words, it lets us make statements like 'this unknown tile is
 exactly X more (or less) powerful than this other one'. We can then use this information to prune it -
 if some tile X has lets say 2 more power than another tile Y,
 we can eliminate all monsters from X with such power(s) P, for which we know that Y cannot be a monster with power P-2. Well, look at the example below.
@@ -639,17 +639,30 @@ So if the second tile can only have X more mines around it to begin with, all th
 </table>
 
 
-<h3> What's left </h3>
+<h3> What more could be done? </h3>
 
-gnomes and empty tiles near heals! <br>
+There certainly are ways to deduce even more things. There are still some invariants of the game that the we didn't make use of, and then there's &#9734;*advanced algorithmics*&#9734;.
 
-big slime proper placing everywhere <br>
+From the invariant side, first is enemy counting - each game has a set amount of each enemy type, after all. We can count how many
+of each enemy we've slain, plus how many more we identified, and if we reached the cap, we can remove this enemy from all unknown tiles! In practice,
+this is already done for rats, slimes and mines once we cast their respective spells, for the guards on a per-quadrant basis, and for Big Slimes once we found
+the Wizard. And for the rest, it just doesn't seem that important - by the time we've found all enemies of a single type, we've probably revealed basically the
+entire dungeon, and by then we have so much more information to use to deduce the final tiles, that this probably wouldn't make much of a difference.
 
-counting enemies <br>
+Another fancy fact we haven't used is the Gnome - did you know he always starts out neighboring a heal? Yes, it's true! Then again, the fact that
+'some tile around where the Gnome was first spotted is a heal' isn't very powerful knowledge, and by the time we figure out it has zero power, we're going to reveal it anyway, and find out if it is the heal or not. Similarly, once the Gnome doesn't teleport, we know there are no more unrevealed empty tiles left - 
+but by then, we can probably deduce everything without making use of this, since this usually happens very late into the game.
 
-trying subsets and similar high-power things <br>
+Well, and then there are the big and/or smart algorithms.
 
-dual-gazer hunting
+We could be doing many flavours of knapsacks and tilings to try and rule out certain combinations of enemies around each tile. However, this would be
+A) quite complicated (you would have to have these knapsacks respect the rules, like Gargoyles need to be together, Lovers need to have the opposite tile
+available for their partner...) and B) computationally intensive. These permutation-combination-y algorithms, across large sets of tiles that surround the known
+space, would (unless used very conservatively) completely dwarf all the other computations we're doing, therefore worsening the performance by some order of magnitude. Running them all the time seems overkill. So let's just not bother. There is a certain beauty in just cobbling together all the simple things and
+seeing them synergize, as opposed to 'just throw the overpowered try-it-all at it'.
+
+Figuring out that the Gazers are far apart and then being able to make stronger assumptions to hunt them down would
+also probably fall under this umbrella. On the bright side, this way you can feel smart when you pinpoint them before the bot brain does!
 
 <h3> How to know everything and not have 10 FPS </h3>
 
@@ -670,7 +683,6 @@ Yay, optimized!
 
 <h4> Coming soon </h4>
 
-- A section on all the tricks used to glean information about the dungeon (WIP)
 - A section on how the solver picks its next move
 - A more detailed section about the solver's performance and how we got there
 - Advanced section (how to add more code? how to test?)
