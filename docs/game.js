@@ -3847,6 +3847,10 @@ function maybeGetNextClick() {
     }
 
     if (revealValues == undefined) {
+        // if the player won most of the game and only asked the solver for moves at the very end, we might have never
+        // populated the reveal values. This then crashes the game.
+        // We can only get here if we never tried explorationPhaseClick(), which means we are in allRevealed state.
+        // So, we only have to do this once, as things will never change.
         populateRevealValues();
     }
 

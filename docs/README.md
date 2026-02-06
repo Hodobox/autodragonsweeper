@@ -681,6 +681,37 @@ and further down the grid, it will keep going as long as needed.
 
 Yay, optimized!
 
+<h2> Solving the dungeon </h2>
+
+We have all this theoretical knowledge, and need to put it into practice. What should Jorge actually do?
+
+Let's recount what we know:
+- For every tile, the set of actors that could be on it
+  - (for some tiles we know exactly what is on it)
+- Jorge's HP
+- Jorge's XP needed for next level
+- Some facts about the state of the game (like which spells we already cast)
+
+And we need to decide just one thing:
+
+- Which tile to click?
+
+(...or maybe we should level up)
+
+There are many things we could/should be taking into account:
+- efficient use of HP
+- revealing tiles that will give us a lot of information
+- killing enemies that let us cast spells
+- we like to guarantee winning the game
+- ...we don't want to die...
+- working towards the mine king
+- dragon egg is free xp woo!
+
+So let's just prioritize the above somehow, and pick the first tile in that priority list that lets us accomplish the given goal.
+This entire section is written in the exact same order as what the 'Solver' is looking at.
+
+... and details are TODO!
+
 <h4> Coming soon </h4>
 
 - A section on how the solver picks its next move
