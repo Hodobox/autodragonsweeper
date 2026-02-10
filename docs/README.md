@@ -687,7 +687,7 @@ We have all this theoretical knowledge, and need to put it into practice. What s
 
 Let's recount what we know:
 - For every tile, the set of actors that could be on it
-  - (for some tiles we know exactly what is on it)
+  - for some tiles we know exactly what is on it
 - Jorge's HP
 - Jorge's XP needed for next level
 - Some facts about the state of the game (like which spells we already cast)
@@ -712,8 +712,8 @@ This entire section is written in the exact same order as what the 'Solver' is l
 
 ... and details are TODO!
 
-<h4> Coming soon </h4>
+<h2> Coming soon </h2>
 
-- A section on how the solver picks its next move
+- A section on how the solver picks its next move (WIP)
 - A more detailed section about the solver's performance and how we got there
 - Advanced section (how to add more code? how to test?)
