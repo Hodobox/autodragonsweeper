@@ -685,7 +685,7 @@ Yay, optimized!
 
 We have all this theoretical knowledge, and need to put it into practice. What should Jorge actually do?
 
-Let's recount what we know:
+Let's quickly recount what we know:
 - For every tile, the set of actors that could be on it
   - for some tiles we know exactly what is on it
 - Jorge's HP
@@ -710,7 +710,24 @@ There are many things we could/should be taking into account:
 So let's just prioritize the above somehow, and pick the first tile in that priority list that lets us accomplish the given goal.
 This entire section is written in the exact same order as what the 'Solver' is looking at.
 
-... and details are TODO!
+<h3> 1. Free actions </h3>
+
+There are some benefitial actions that we can take at no cost to us!
+
+We will consider these actions to be 'free' and beneficial:
+- Collecting any available xp
+- Opening chests we know for sure are chests
+- Casting spells
+- Revealing tiles we know have 0 power
+- Leveling up with 0 hp
+
+If at any time we can do one of those, we should!
+
+<table width="100%">
+    <tr> <td> <img src="writeup/free_actions.png" alt="example of free actions"> </td> </tr>
+    <tr> <td style="text-align:center"> Collecting xp, opening a chest, and leveling up optimally <br> are always good actions to take! </td> </tr>
+</table>
+
 
 <h2> Coming soon </h2>
 
