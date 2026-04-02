@@ -23,7 +23,7 @@ The main additions compared to the original game (v1.1.18):
 - Clicking on the board performs 'free' actions when available (can turn off in settings)
     - Reveal tiles with 0 power
     - Taking xp
-    - Level up when at 0hp
+    - Level up when at 0 hp
     - Casting spells
     - Opening chests (when known not to be a mimic)
 - Clicking on XP bar performs an action picked by an automated solver
@@ -728,6 +728,23 @@ If at any time we can do one of those, we should!
     <tr> <td style="text-align:center"> Collecting xp, opening a chest, and leveling up optimally <br> are always good actions to take! </td> </tr>
 </table>
 
+<h3> 2. VIPs </h3>
+
+Apart from the usual hp-optimizing information-gathering clearing of the dungeon we are doing,
+there also exist some monsters which have a unique return on 'investment'.
+The Mine King, the Rat King, and the Wizard let us cast cool spells as a reward for beating them!
+Gazers also reveal a lot of information when defeated.
+
+In a mindless frenzy, if we known where any of the monsters above is and have the hp to take them out, we will do so.
+We consider them in the order mentioned above.
+
+<table width="100%">
+    <tr> <td> <img src="writeup/vip_mine_king.png" alt="PoV: you are about to click the mine king"> </td> </tr>
+    <tr> <td style="text-align:center"> It doesn't matter what else is on the board. <br> The Mine King's getting it. </td> </tr>
+</table>
+
+As a conditional insert, we will also consider the Lovers as VIPs if we have no heals available and not enough health
+to make it to the next level up. They are put in behind the Mine King in the priority list.
 
 <h2> Coming soon </h2>
 
