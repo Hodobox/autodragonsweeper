@@ -733,7 +733,7 @@ If at any time we can do one of those, we should!
 Apart from the usual hp-optimizing information-gathering clearing of the dungeon we are doing,
 there also exist some monsters which have a unique return on 'investment'.
 The Mine King, the Rat King, and the Wizard let us cast cool spells as a reward for beating them!
-Gazers also reveal a lot of information when defeated.
+Gazers reveal a lot of information when defeated. Killing the dragon guarantees we don't lose the game.
 
 In a mindless frenzy, if we known where any of the monsters above is and have the hp to take them out, we will do so.
 We consider them in the order mentioned above.
@@ -745,6 +745,30 @@ We consider them in the order mentioned above.
 
 As a conditional insert, we will also consider the Lovers as VIPs if we have no heals available and not enough health
 to make it to the next level up. They are put in behind the Mine King in the priority list.
+
+<h3> 3. Guess the Gazer </h3>
+
+Because we ~~aren't smart enough~~ didn't bother doing complex checks to pinpoint Gazers, usually we never reach the point where
+we are certain where one is (before it's way too late).
+
+We need to make an executive decision that the benefits of guessing where a Gazer likely is outweight the risks of waiting around with ?'s
+on the board.
+
+Let's consider all tiles where a Gazer may be hiding. Out of those, consider just those which are in range of the most ?'s.
+If they cover less than four ?'s, we consider the signal too weak and defer the hunt to later. Otherwise, we take each candidate, and just
+verify whether we don't have another one which also explains the same ?'s - in that case it's likely a 50/50 which one contains the Gazer,
+so we don't take the chance. But if we have our unique candidate, then we go for it.
+
+<table width="100%">
+  <tr>
+    <td width="50%"> <img src="writeup/guessed_gazer.png " alt="One tile seems to explain a lot of ?'s" />  </td>
+    <td width="50%"> <img src="writeup/two_competing_gazers.png" alt="Two tiles fit all surrounding ?'s"/> </td>
+  </tr>
+  <tr>
+    <td width="50%" style="text-align:center"> These ?'s seem to all point to one spot... </td>
+    <td width="50%" style="text-align:center"> Two tiles explain the ?'s equally well. We can't be confident. </td>
+  </tr>
+</table>
 
 <h2> Coming soon </h2>
 
