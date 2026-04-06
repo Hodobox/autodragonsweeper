@@ -770,6 +770,41 @@ so we don't take the chance. But if we have our unique candidate, then we go for
   </tr>
 </table>
 
+<h3> The best way to clear </h3>
+
+Alright, nothing particular strikes our fancy. We just need to hit some generic tile. Which one?
+
+For our purposes, a tile has two properties: 
+- how much damage we will take when we clear it
+- how useful it will be to have this tile cleared.
+
+The prior may be known exactly (when we know the tile's power), or it might be some distribution based on which monsters might be lurking underneath.
+It is important to note that it's not that more damage is worse (or better) - it's how taking this damage will affect our ability to use up our
+entire health bar in successive moves that we care about.
+
+The latter is quite a complex value to determine. As is tradition, we will just throw some simple heuristic at it and call it a day! We will
+just assign each tile a real value from 0 to whatever, and the higher this value, the more useful we believe it would be to know what's hiding under the tile
+(both at knowing the power if we don't know it yet, and/or the attack number we will see once we clear it).
+
+<details markdown=1>
+<summary> Details here if you want them! </summary>
+
+- If a tile is empty, there is nothing to reveal. -1.
+- If we know a tile's power, the only* thing we would be revealing is the number under it. If we already have a number with the same unknown neighbors, this would teach us nothing. So 0.
+- If a tile could be the dragon egg, add 10 to the value. We like poking around for the egg.
+- If a tile could be a neighbor of the Mine King, add 10 to the value. We like hunting for the Mine King.
+- If we don't know a tile's power, add 0.2. We like collapsing the multiple possibilities into one, it will likely help with determining the neighbors.
+- It's good if seeing the number under this tile would help us with the unknown tiles around it. This is a function of what unknown neighbors we have, and
+how much we would be helping with another hint from under our tile. Intuitively, the more hints we already have for a tile, the more likely another one will
+help us really pin it down. So, add some value for each unknown neighbor we would get a new hint for, and this value will be how many known neighbors it already has.
+
+<table width="100%">
+    <tr> <td> <img src="writeup/reveal_values.png" alt="Example reveal values"> </td> </tr>
+    <tr> <td style="text-align:center"> Example reveal values. Possible eggs are awesome. Tiles closer to areas we are exploring are generally better. </td> </tr>
+</table>
+
+</details>
+
 <h2> Coming soon </h2>
 
 - A section on how the solver picks its next move (WIP)

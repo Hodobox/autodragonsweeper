@@ -3326,6 +3326,7 @@ function maybeGetFreeClick() {
     return click;
 }
 
+// check if a has such a neighbor, such that it is a visible number and it has the same unknown neighbors as a
 function numberWithSameUnknownNeighborExists(a) {
     let missing = new Set();
     function encodeForSet(tx, ty) { return ty * state.gridW + tx; }
@@ -3535,7 +3536,9 @@ function explorationPhaseClick() {
     knownInterestingE.sort(sortByRevealValues);
     let boringE = state.actors.filter((a) => knownGameState.grid[a.ty][a.tx].knownPower() > 0 && knownGameState.grid[a.ty][a.tx].knownPower() <= hp && revealValues[a.ty][a.tx] == 0);
     boringE.sort((a, b) => knownGameState.grid[b.ty][b.tx].knownPower() - knownGameState.grid[a.ty][a.tx].knownPower());
-    // and now a 4th bonus one: most interesting representative, for each square, of its unknown neighbors with some total power
+    // and now a 4th bonus list - for each attack number, we can look at all the unknown power tiles around it as a sort of single enemy
+    // and sum their reveal values. Remember these values, and also which of those unknown tiles is the most revealing
+    // (because we'd want to start with that one if we want to go for this set)
     let groupsOfE = []
     for (let a of state.actors) {
         let vis = getVisibleAttackNumber(a);
@@ -5307,6 +5310,18 @@ function updatePlaying(ctx, dt) {
     if (powerHintsOn) {
         for (let i = 0; i < state.gridH; i++) {
             for (let k = 0; k < state.gridW; k++) {
+
+                // to display revealValues instead of hints:
+                /*
+                if (revealValues != null && revealValues[i][k] != null) {
+                    const r = getRectForTile(k, i);
+                    let v = revealValues[i][k] >= 1 ? revealValues[i][k].toFixed(1) : revealValues[i][k].toFixed(2).substring(1);
+                    if (revealValues[i][k] >= 0) {
+                        fontUIBlue.drawLine(ctx, "" + v, r.centerx(), r.centery(), FONT_CENTER | FONT_VCENTER);
+                    }
+                }
+                continue;
+                */
 
                 let actor = getActorAt(k, i);
                 if (actor.revealed) {
