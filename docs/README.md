@@ -12,7 +12,7 @@ Please visit <a href="https://danielben.itch.io/dragonsweeper">https://danielben
   </tr>
 </table>
 
-<h1><a href = "game.html"> Click here to play!</a> </h1>
+<a href = "game.html"> Click here to play!</a> </h1>
 
 After enjoying Dragonsweeper a lot, I decided to try and have a crack at solving it programmatically.
 
@@ -770,7 +770,7 @@ so we don't take the chance. But if we have our unique candidate, then we go for
   </tr>
 </table>
 
-<h3> The best way to clear </h3>
+<h3> What we value in a tile </h3>
 
 Alright, nothing particular strikes our fancy. We just need to hit some generic tile. Which one?
 
@@ -804,6 +804,67 @@ help us really pin it down. So, add some value for each unknown neighbor we woul
 </table>
 
 </details>
+
+<h3> Choosing the right enemy </h3>
+
+Armed with the possible power & reveal value for each tile, we can now deliberate on which one is the best target.
+
+We separate tiles into four disjoint groups:
+- Interesting enemies: those whose power we know, and defeating them would grant us some information (reveal value is positive).
+- Boring enemies: those whose power we know, and defeating them will teach us nothing (reveal value is zero).
+- Unknown *groups* of enemies: sets of tiles neighboring some attack number whose *total* power we know, even though we don't know how it is distributed.
+- Unknown enemies: those whose power we don't know. By definition their reveal value is positive, because we will learn something by defeating them.
+
+Our first objective is to use up our hp effectively. Whenever we consider to make some move, we need to consider what hp we will have after it, 
+and whether there is a way to spend it all without relying on luck. Simply put, we need to be able to answer, for any amount of hp X, 'is there a set
+of enemies we know, whose power adds up to X?'. The algorithm that lets us find these answers is an easier variation of the knapsack problem.
+
+Let's run this algorithm on the interesting enemies, and then separately add boring enemies on top. This way we can ask 'can we use up X hp with interesting enemies?' and 'can we use up X hp at all?'.
+
+And now we examine a long chain of ever-less-beneficial possibilities of how to use up all of our hp. Let's call the amount of hp we have 'H'.
+Then, in order:
+
+- Look through the groups of unknown enemies with known total power, ordered from highest total reveal value to lowest.
+  - If the total power of the group is P, and we can clear H-P using interesting enemies, then
+    - **Hit the most interesting enemy in this group**
+- Same as above, but relax the clearing condition, trying to clear H-P health with boring enemies as well
+- Look through individual unknown enemies from highest reveal value to lowest
+  - If for each power P this unknown enemy could be we can clear H-P using interesting enemies, then
+    - **Hit it**
+- Same as above, but allow clearing with boring enemies as well
+- Look through the interesting enemies from most to least revealing
+  - If its power is P and we can clear H-P health using **other** enemies, then
+    - **Hit it**
+
+If we looked through all of those options but didn't find anything, we are left with two options:
+- Use all of our hp, but using only boring enemies
+- Not guarantee to use all of our hp (given the information we have right now), but maybe gather some information
+
+Using all of our hp using boring enemies is the correct thing to do, if we aren't in what we can broadly call 'a bad situation'.
+
+A bad situation is one where we are making no progress (doomed to hit boring enemies until we run out of them, then have to just risk dying).
+In such bad situations it is better to take risks early -
+get some more information, which might allow us to find more enemies to clear better, or find some heals, etc.
+
+We will want to *delay* hitting boring enemies if we are at max hp. This is a situation where we are making no progress, so it's better
+to experiment now than hit a few boring enemies and have to try our luck later, when we already have less hp to spend.
+
+We will want to *avoid* hitting boring enemies if we have no heals available, and cannot guarantee to level up with the enemies we know. This means
+if we only hit the boring enemies we know, we will just end up with almost no hp, no heals or levels to take, and then have to risk it anyway.
+
+If we don't want to delay or avoid hitting boring enemies, then just hit one that allows us to use up all of our hp.
+
+If we didn't do that, either because we don't want to or because we can't, it's time to probe a little bit:
+- Try hitting an unknown enemy that can't kill us, and has the lowest worst-case power
+- Try hitting an interesting enemy with the highest power that can't kill us
+
+If we *still* didn't hit anything, we only have two options:
+- Hit a boring enemy (preferably one that lets us use all our hp, otherwise the strongest one we can)
+- Hit something that might kill us
+
+We will prefer the first option unless we need to avoid hitting boring enemies. In that case we go for the *Hail Mary*.
+
+<>
 
 <h2> Coming soon </h2>
 
