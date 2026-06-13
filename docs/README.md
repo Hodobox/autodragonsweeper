@@ -12,7 +12,7 @@ Please visit <a href="https://danielben.itch.io/dragonsweeper">https://danielben
   </tr>
 </table>
 
-<a href = "game.html"> Click here to play!</a> </h1>
+# <a href = "game.html"> Click here to play!</a>
 
 After enjoying Dragonsweeper a lot, I decided to try and have a crack at solving it programmatically.
 
@@ -64,7 +64,7 @@ Lost without risk: 1
 
 You can find all the code in my [github repository](https://github.com/Hodobox/autodragonsweeper).
 
-<h2> Figuring out the lair </h2>
+## Figuring out the lair
 
 So before I can try to come up with a strategy on what action to take, my solver will need some information first.
 As much of it as possible. I will call the sum of everything the solver knows about the lair the *known game state*.
@@ -122,7 +122,7 @@ We'll get down to all the rules in a jiffy, but in case you stumble on some term
 
 </details>
 
-<h3> The very basics </h3>
+### The very basics
 
 - If we have a tile with an attack number, and the known powers of its neighbors sum up to this number, then all the unknown neighbors are 0s
 
@@ -167,7 +167,7 @@ And so we will rule out all monsters from this tile which don't have exactly thi
   </tr>
 </table>
 
-<h3> Too big and too small </h3>
+### Too big and too small
 
 - If we have a tile with attack number A, and the sum of the lowest possible powers of all neighbors except one is L, then the unaccounted-for 
 neighbor's power is at most A-L
@@ -199,7 +199,7 @@ We do this separately for mines and creatures (even if a tile shows 105, and its
 it could be at most a 5, so this puts limits on the creatures that can be in the other neighbors). So in the example above, we are really doing
 11 - (... + strongest creature which could be on the mine's tile).
 
-<h3> Utilizing type 4 knowledge </h3>
+### Utilizing type 4 knowledge
 
 Knowledge gained from game-changing actions is pretty straightforward
 
@@ -224,7 +224,7 @@ This helps us because if we find a 5 after revealing slimes (and we know it's no
 
 This helps because if we know a tile isn't power 0, it must be at least a 2. Boosts the power of the rules described in the previous section!
 
-<h3> Simple category 2 rules </h3>
+### Simple category 2 rules
 
 Some enemies in the game exist only once. Once you've found them, they can't be anywhere else:
 
@@ -262,7 +262,7 @@ tell he's in the fourth.
 </table>
 
 
-<h3> Fancy type 2 rules </h3>
+### Fancy type 2 rules
 
 You're about to learn some Dragonsweeper.
 
@@ -376,7 +376,7 @@ If you spot a guard, he's the only one in that quadrant (isolated by the central
 </table>
 
 
-<h3> Hunt for the Wizard </h3>
+### Hunt for the Wizard
 
 The Wizard and his Big Slimes are a unique configuration. We need to be able to spot him through the Big Slimes, because punching
 through them takes loads of hp.
@@ -475,7 +475,7 @@ Here it's also important not to make this judgment near the corner, where we cou
     since they cannot both hold it without going over its limit, we can rule them out. </td> </tr>
 </table>
 
-<h3> Gaze into your soul </h3>
+### Gaze into your soul
 
 Gazers are a problem, because they obscure themselves. They put `?`s on all revealed empty tiles with Manhattan distance <=2.
 By their nature, we can never pinpoint their location using typical rules looking at attack numbers, because there will never be
@@ -516,12 +516,12 @@ If you just nodded along to this demonstration and are now a bit disappointed th
 <br>
 So, from the perspective of the known game state, where it must not conclude false information, it really is better to be safe than sorry.
 
-<h3> Even fancier type 2 rules </h3>
+### Even fancier type 2 rules
 
 We may have some unrevealed tiles that we cannot determine just by looking at one neighboring attack number, but that we may determine
 (at least something about) it if we look at several. Let's do that! 
 
-<h4> V0 </h4>
+#### V0
 
 If there are two neighboring attack-number tiles, and they share all unknown neighbors except one, we can directly calculate that one's power.
 
@@ -538,7 +538,7 @@ If there are two neighboring attack-number tiles, and they share all unknown nei
   </tr>
 </table>
 
-<h4> V1 </h4>
+#### V1
 
 Even if two neighboring attack-number tiles have more than one unshared unknown neighbor, as long as all of the unshared neighbors are neighbors of just
 one of them, we can determine the upper bound on their total power (even if we can't tell how it is distributed).
@@ -556,7 +556,7 @@ one of them, we can determine the upper bound on their total power (even if we c
   </tr>
 </table>
 
-<h4> V2 </h4>
+#### V2
 
 Even if two neighboring attack-number tiles each have some unknown neighbors that they do not share with the other, if they both have exactly one,
 we can find the relationship between the powers of these two unknown tiles. In other words, it lets us make statements like 'this unknown tile is
@@ -587,7 +587,7 @@ we can eliminate all monsters from X with such power(s) P, for which we know tha
   </tr>
 </table>
 
-<h4> V3 </h4>
+#### V3
 
 What if one attack-number tile has one unshared neighbor to itself, and its neighbor has several to itself? Can we still tell something?
 Well, the bound becomes a bit weaker. We now have a statement of the form 'this bunch of tiles have a combined power X more (or less) than this one tile T'.
@@ -614,7 +614,7 @@ and eliminate everything from T which is smaller than that +X.
   </tr>
 </table>
 
-<h4> ...and with mines separately </h4>
+#### ...and with mines separately
 
 Using the same shifting logic, if we have two neighboring attack-number tiles, where one needs X more mines around it,
 and the other needs X+Y mines around it, then the unshared neighbors around the second tile need (at least) Y mines. If
@@ -639,7 +639,7 @@ So if the second tile can only have X more mines around it to begin with, all th
 </table>
 
 
-<h3> What more could be done? </h3>
+### What more could be done?
 
 There certainly are ways to deduce even more things. There are still some invariants of the game that the we didn't make use of, and then there's &#9734;*advanced algorithmics*&#9734;.
 
@@ -664,7 +664,7 @@ seeing them synergize, as opposed to 'just throw the overpowered try-it-all at i
 Figuring out that the Gazers are far apart and then being able to make stronger assumptions to hunt them down would
 also probably fall under this umbrella. On the bright side, this way you can feel smart when you pinpoint them before the bot brain does!
 
-<h3> How to know everything and not have 10 FPS </h3>
+### How to know everything and not have 10 FPS
 
 Of course, if you take the current known game state and apply all the rules one after the other, you may gain more knowledge, and this knowledge might make it
 possible to obtain more knowledge if you applied them again. So, we want to apply the rules over and over.
@@ -681,7 +681,7 @@ and further down the grid, it will keep going as long as needed.
 
 Yay, optimized!
 
-<h2> Solving the dungeon </h2>
+## Solving the dungeon
 
 We have all this theoretical knowledge, and need to put it into practice. What should Jorge actually do?
 
@@ -710,7 +710,7 @@ There are many things we could/should be taking into account:
 So let's just prioritize the above somehow, and pick the first tile in that priority list that lets us accomplish the given goal.
 This entire section is written in the exact same order as what the 'Solver' is looking at.
 
-<h3> 1. Free actions </h3>
+### 1. Free actions
 
 There are some benefitial actions that we can take at no cost to us!
 
@@ -728,7 +728,7 @@ If at any time we can do one of those, we should!
     <tr> <td style="text-align:center"> Collecting xp, opening a chest, and leveling up optimally <br> are always good actions to take! </td> </tr>
 </table>
 
-<h3> 2. VIPs </h3>
+### 2. VIPs
 
 Apart from the usual hp-optimizing information-gathering clearing of the dungeon we are doing,
 there also exist some monsters which have a unique return on 'investment'.
@@ -746,7 +746,7 @@ We consider them in the order mentioned above.
 As a conditional insert, we will also consider the Lovers as VIPs if we have no heals available and not enough health
 to make it to the next level up. They are put in behind the Mine King in the priority list.
 
-<h3> 3. Guess the Gazer </h3>
+### 3. Guess the Gazer
 
 Because we ~~aren't smart enough~~ didn't bother doing complex checks to pinpoint Gazers, usually we never reach the point where
 we are certain where one is (before it's way too late).
@@ -770,7 +770,7 @@ so we don't take the chance. But if we have our unique candidate, then we go for
   </tr>
 </table>
 
-<h3> What we value in a tile </h3>
+### What we value in a tile
 
 Alright, nothing particular strikes our fancy. We just need to hit some generic tile. Which one?
 
@@ -805,7 +805,7 @@ help us really pin it down. So, add some value for each unknown neighbor we woul
 
 </details>
 
-<h3> Choosing the right enemy </h3>
+### Choosing the right enemy
 
 Armed with the possible power & reveal value for each tile, we can now deliberate on which one is the best target.
 
@@ -866,7 +866,7 @@ We will prefer the first option unless we need to avoid hitting boring enemies. 
 
 <>
 
-<h2> Coming soon </h2>
+## Coming soon
 
 - A section on how the solver picks its next move (WIP)
 - A more detailed section about the solver's performance and how we got there
