@@ -910,6 +910,5 @@ set this up.
 
 ## Coming soon
 
-- A section on how the solver picks its next move (WIP)
 - A more detailed section about the solver's performance and how we got there
 - Advanced section (how to add more code? how to test?)
