@@ -790,7 +790,7 @@ just assign each tile a real value from 0 to whatever, and the higher this value
 <summary> Details here if you want them! </summary>
 
 - If a tile is empty, there is nothing to reveal. -1.
-- If we know a tile's power, the only* thing we would be revealing is the number under it. If we already have a number with the same unknown neighbors, this would teach us nothing. So 0.
+- If we know a tile's power, the only thing we would be revealing is the number under it. If we already have a number with the same unknown neighbors, this would teach us nothing. So 0.
 - If a tile could be the dragon egg, add 10 to the value. We like poking around for the egg.
 - If a tile could be a neighbor of the Mine King, add 10 to the value. We like hunting for the Mine King.
 - If we don't know a tile's power, add 0.2. We like collapsing the multiple possibilities into one, it will likely help with determining the neighbors.
@@ -864,7 +864,49 @@ If we *still* didn't hit anything, we only have two options:
 
 We will prefer the first option unless we need to avoid hitting boring enemies. In that case we go for the *Hail Mary*.
 
-<>
+### Hail Mary
+
+Sometimes, you have to take risks. Putting the inevitable off will not help anyone.
+
+So, in a time of great need, what do we click?
+
+Some unknown enemy, obviously. It might kill us, or it might lead us to salvation.
+Let's sort all unknown tiles by the survival probability, which we will of course compute heuristically,
+as the number of powers that could be hiding under the tile that we would survive, divided by all the number
+of powers that could be hiding under the tile. It could probably be improved a little bit by acknowledging that
+some monsters are much more common than others (there is only 1 guard in each quadrant, but probably many rats and slimes).
+
+Additionally, we are desperately looking for tiles that would not only let us reveal some more information, but save us - give
+us a heal or extra xp. So, we prioritize tiles that could be a chest (tiles near a minotaur whose chest was not yet revealed)
+or the dragon egg. We have to make a decision about what tradeoff between taking one of these tiles versus just a regular unknown tile,
+and our likelihood to survive. We have made the decsision that the magical constant for this tradeoff is $2/3$ - if taking this probably-more-useful
+tile doesn't kill us more than a third-of-the-time more often, we'll take it.
+
+Either way, we're hitting one of those two tiles, with the greatest survival probability. May the odds be in our favor.
+
+### Simplified combat
+
+Phew, if you just read the sections above, you know how much tangled sequential logic we have to go through each click.
+
+There comes a point when just doing something simple works better; and that point is when we have explored the entire dungeon.
+In that case all that's left to do is use up our hp as efficiently as possible to clear the dungeon to the best of our ability.
+
+We just run a knapsack trying to use up all of our hp, and if we find a way to do it, we hit the strongest remaining enemy that
+lets us do so. If we can't, we just hit the most powerful enemy that we can survive.
+
+### Nothing to fight
+
+If our solver went through aaalllll of the above steps, and we still have not decided to hit anything,
+it means there is no viable enemy to fight at all.
+
+This state is simply one where we dump all our hp into the lowest hp (or most revealing if tied) wall,
+and then level up if we can, and use a heal if we cannot.
+
+If we can't even do any of those, we will try to win the game by taking the crown.
+
+And if not even that's possible, we have reached checkmate -- we can't win, can't heal, and every tile we have left
+is *guaranteed* to kill us. I believe in practice such a position can never be reached unless one deliberately tries to
+set this up.
 
 ## Coming soon
 
